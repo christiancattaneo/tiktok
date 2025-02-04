@@ -4,8 +4,8 @@ import '../providers/auth_provider.dart';
 import '../services/video_service.dart';
 import '../models/video.dart';
 import '../widgets/video_card.dart';
-import '../data/sample_videos.dart';
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -63,112 +63,87 @@ class _FeedScreenState extends State<FeedScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          'ReelAI',
-          style: TextStyle(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-            fontSize: 20,
-          ),
-        ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.add_to_photos, color: Colors.white),
-            onPressed: () async {
-              try {
-                await SampleVideos.addToFirestore();
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Added sample videos!')),
-                  );
-                }
-              } catch (e) {
-                if (mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error: ${e.toString()}')),
-                  );
-                }
-              }
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.white),
-            onPressed: () {
-              context.read<AuthProvider>().signOut();
-            },
-          ),
-        ],
-      ),
-      body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : _videos.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text(
-                        'No videos available',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Colors.black,
-                        ),
-                        onPressed: () async {
-                          try {
-                            await SampleVideos.addToFirestore();
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Added sample videos!')),
-                              );
-                            }
-                          } catch (e) {
-                            if (mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(content: Text('Error: ${e.toString()}')),
-                              );
-                            }
-                          }
-                        },
-                        child: const Text('Add Sample Videos'),
-                      ),
-                    ],
-                  ),
-                )
-              : PageView.builder(
-                  scrollDirection: Axis.vertical,
-                  controller: _pageController,
-                  onPageChanged: (index) {
-                    setState(() {
-                      _currentPage = index;
-                    });
-                  },
-                  itemCount: _videos.length,
-                  itemBuilder: (context, index) {
-                    final shouldInitialize = (index >= _currentPage - 1) && 
-                                          (index <= _currentPage + 1);
-                    
-                    return VideoCard(
-                      key: ValueKey(_videos[index].id),
-                      video: _videos[index],
-                      autoPlay: index == _currentPage,
-                      shouldInitialize: shouldInitialize,
-                    );
-                  },
+      body: SafeArea(
+        child: Stack(
+          children: [
+            if (_isLoading)
+              const Center(
+                child: CircularProgressIndicator(
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                 ),
+              )
+            else if (_videos.isEmpty)
+              const Center(
+                child: Text(
+                  'No videos available\nTry uploading one!',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              )
+            else
+              PageView.builder(
+                scrollDirection: Axis.vertical,
+                controller: _pageController,
+                onPageChanged: (index) {
+                  setState(() {
+                    _currentPage = index;
+                  });
+                },
+                itemCount: _videos.length,
+                itemBuilder: (context, index) {
+                  final shouldInitialize = (index >= _currentPage - 1) && 
+                                        (index <= _currentPage + 1);
+                  
+                  return VideoCard(
+                    key: ValueKey(_videos[index].id),
+                    video: _videos[index],
+                    autoPlay: index == _currentPage,
+                    shouldInitialize: shouldInitialize,
+                  );
+                },
+              ),
+            
+            // Overlay buttons in top-right
+            Positioned(
+              top: 8,
+              right: 8,
+              child: Row(
+                children: [
+                  if (kDebugMode) // Only show in debug mode
+                    IconButton(
+                      icon: const Icon(Icons.cleaning_services, color: Colors.white),
+                      onPressed: () async {
+                        try {
+                          await _videoService.deleteSampleVideos();
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Sample videos cleaned up!')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error: ${e.toString()}')),
+                            );
+                          }
+                        }
+                      },
+                    ),
+                  IconButton(
+                    icon: const Icon(Icons.logout, color: Colors.white),
+                    onPressed: () {
+                      context.read<AuthProvider>().signOut();
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 } 

@@ -66,11 +66,19 @@
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-messaging-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-check-compat.js"></script>
 
-  <!-- Load Firebase configuration -->
-  <script src="firebase-config.js"></script>
-
   <script>
-    // Initialize Firebase with loaded configuration
+    // Firebase configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyD6vlwOSAdBVzfOTF9Eb14Q6IsxFXLpAmg",
+      authDomain: "reelai-35b9e.firebaseapp.com",
+      projectId: "reelai-35b9e",
+      storageBucket: "reelai-35b9e.firebasestorage.app",
+      messagingSenderId: "578405048133",
+      appId: "1:578405048133:web:92a92123dea6d146c6282c",
+      measurementId: "G-6QS87VFGS0"
+    };
+
+    // Initialize Firebase
     firebase.initializeApp(firebaseConfig);
     firebase.analytics();
   </script>

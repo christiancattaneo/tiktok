@@ -197,11 +197,14 @@ class UserService {
       // Read the file as bytes
       final bytes = await image.readAsBytes();
       
-      // Upload with metadata
+      // Upload with metadata to trigger Cloud Function
       final metadata = SettableMetadata(
         contentType: 'image/jpeg',
         customMetadata: {
           'uploadedAt': DateTime.now().toIso8601String(),
+          'requiresProcessing': 'true', // Flag for Cloud Function to process image
+          'userId': userId,
+          'type': 'profile_photo'
         },
       );
       
@@ -210,14 +213,8 @@ class UserService {
       // Upload the image
       await ref.putData(bytes, metadata);
       
-      // Get the download URL
-      final downloadUrl = await ref.getDownloadURL();
-      
-      // Update the user document with the new photo URL
-      await _firestore.collection('users').doc(userId).update({
-        'photoUrl': downloadUrl,
-      });
-      
+      // Don't get the download URL - Cloud Function will handle updating the user document
+      // Just return true to indicate successful upload
       return true;
     } catch (e) {
       print('Error updating profile photo: $e');

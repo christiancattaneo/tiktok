@@ -119,6 +119,21 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
     );
   }
 
+  Widget _buildProfilePhoto() {
+    return CircleAvatar(
+      radius: 16,
+      backgroundColor: Colors.grey[800],
+      backgroundImage: widget.video.creatorPhotoUrl != null && 
+                      widget.video.creatorPhotoUrl!.isNotEmpty
+          ? NetworkImage(widget.video.creatorPhotoUrl!)
+          : null,
+      child: widget.video.creatorPhotoUrl == null || 
+             widget.video.creatorPhotoUrl!.isEmpty
+          ? const Icon(Icons.person, color: Colors.white, size: 16)
+          : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -171,18 +186,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
                 },
                 child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 16,
-                      backgroundColor: Colors.grey[800],
-                      backgroundImage: widget.video.creatorPhotoUrl != null && 
-                                    widget.video.creatorPhotoUrl!.isNotEmpty
-                          ? NetworkImage(widget.video.creatorPhotoUrl!)
-                          : null,
-                      child: widget.video.creatorPhotoUrl == null || 
-                             widget.video.creatorPhotoUrl!.isEmpty
-                          ? const Icon(Icons.person, color: Colors.white)
-                          : null,
-                    ),
+                    _buildProfilePhoto(),
                     const SizedBox(width: 8),
                     Text(
                       '@${widget.video.creatorUsername}',

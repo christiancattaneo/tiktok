@@ -7,6 +7,7 @@ import '../services/user_service.dart';
 import '../models/video.dart';
 import '../models/user.dart' as app_models;
 import '../widgets/video_card.dart';
+import '../widgets/video_player_widget.dart';
 import 'edit_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
@@ -135,13 +136,6 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 },
               ),
             ],
-            bottom: TabBar(
-              controller: _tabController,
-              tabs: const [
-                Tab(text: 'Videos'),
-                Tab(text: 'Liked'),
-              ],
-            ),
           ),
           body: Column(
             children: [
@@ -221,6 +215,14 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                         ),
                       ],
                     ),
+                    const SizedBox(height: 16),
+                    TabBar(
+                      controller: _tabController,
+                      tabs: const [
+                        Tab(text: 'Videos'),
+                        Tab(text: 'Liked'),
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -247,65 +249,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           return const Center(child: Text('No videos yet'));
                         }
 
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            childAspectRatio: 0.6,
-                          ),
-                          itemCount: videos.length,
-                          itemBuilder: (context, index) {
-                            final video = videos[index];
-                            return GestureDetector(
-                              onTap: () {
-                                // TODO: Open video in full screen
-                              },
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  if (video.thumbnailUrl != null)
-                                    Image.network(
-                                      video.thumbnailUrl!,
-                                      fit: BoxFit.cover,
-                                    )
-                                  else
-                                    Container(
-                                      color: Colors.grey[900],
-                                      child: const Icon(
-                                        Icons.play_circle_outline,
-                                        color: Colors.white,
-                                        size: 32,
-                                      ),
-                                    ),
-                                  Positioned(
-                                    bottom: 4,
-                                    right: 4,
-                                    child: Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        const Icon(
-                                          Icons.favorite,
-                                          color: Colors.white,
-                                          size: 16,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          '${video.likes}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
+                        return _buildVideoGrid(videos);
                       },
                     ),
 
@@ -326,61 +270,82 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           return const Center(child: Text('No liked videos'));
                         }
 
-                        return GridView.builder(
-                          padding: const EdgeInsets.all(8),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                            crossAxisCount: 3,
-                            crossAxisSpacing: 8,
-                            mainAxisSpacing: 8,
-                            childAspectRatio: 0.6,
-                          ),
-                          itemCount: videos.length,
-                          itemBuilder: (context, index) {
-                            final video = videos[index];
-                            return GestureDetector(
-                              onTap: () {
-                                // TODO: Open video in full screen
-                              },
-                              child: Stack(
-                                fit: StackFit.expand,
-                                children: [
-                                  if (video.thumbnailUrl != null)
-                                    Image.network(
-                                      video.thumbnailUrl!,
-                                      fit: BoxFit.cover,
-                                    )
-                                  else
-                                    Container(
-                                      color: Colors.grey[900],
-                                      child: const Icon(
-                                        Icons.play_circle_outline,
-                                        color: Colors.white,
-                                        size: 32,
-                                      ),
-                                    ),
-                                  Positioned(
-                                    bottom: 4,
-                                    left: 4,
-                                    child: Text(
-                                      '@${video.creatorUsername}',
-                                      style: const TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            );
-                          },
-                        );
+                        return _buildVideoGrid(videos);
                       },
                     ),
                   ],
                 ),
               ),
             ],
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVideoGrid(List<Video> videos) {
+    return GridView.builder(
+      padding: const EdgeInsets.all(8),
+      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: 3,
+        crossAxisSpacing: 8,
+        mainAxisSpacing: 8,
+        childAspectRatio: 1.0,
+      ),
+      itemCount: videos.length,
+      itemBuilder: (context, index) {
+        final video = videos[index];
+        return GestureDetector(
+          onTap: () {
+            // TODO: Open video in full screen
+          },
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(4),
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.black,
+                  ),
+                  child: VideoPlayerWidget(
+                    video: video,
+                    autoPlay: false,
+                    shouldInitialize: false,
+                    fit: BoxFit.cover,
+                  ),
+                ),
+                Positioned(
+                  bottom: 4,
+                  right: 4,
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.visibility,
+                          color: Colors.white,
+                          size: 16,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          '${video.views}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

@@ -6,6 +6,7 @@ import '../services/user_service.dart';
 import '../models/video.dart';
 import '../models/user.dart';
 import '../widgets/video_card.dart';
+import '../widgets/video_player_widget.dart';
 
 class UserProfileScreen extends StatefulWidget {
   final String userId;
@@ -465,20 +466,11 @@ class _VideoThumbnail extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          if (video.thumbnailUrl != null)
-            Image.network(
-              video.thumbnailUrl!,
-              fit: BoxFit.cover,
-            )
-          else
-            Container(
-              color: Colors.black,
-              child: const Icon(
-                Icons.play_circle_outline,
-                color: Colors.white,
-                size: 32,
-              ),
-            ),
+          VideoPlayerWidget(
+            video: video,
+            autoPlay: false,
+            shouldInitialize: false,
+          ),
           Positioned(
             bottom: 8,
             left: 8,
