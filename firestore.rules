@@ -1,0 +1,54 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Helper functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    // User rules
+    match /users/{userId} {
+      // Allow reading individual user docs and querying the collection
+      allow read, list: if isSignedIn();
+      allow write: if isOwner(userId);
+      
+      // Followers collection
+      match /followers/{followerId} {
+        allow read: if isSignedIn();
+        // Only the target user can be followed/unfollowed
+        allow write: if isSignedIn() && request.auth.uid == followerId;
+      }
+      
+      // Following collection
+      match /following/{followingId} {
+        allow read: if isSignedIn();
+        // Only the owner can follow/unfollow others
+        allow write: if isOwner(userId);
+      }
+    }
+
+    // Video rules
+    match /videos/{videoId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update, delete: if isSignedIn() && request.auth.uid == resource.data.userId;
+      
+      // Likes subcollection
+      match /likes/{userId} {
+        allow read: if isSignedIn();
+        // Only allow users to like/unlike with their own userId
+        allow write: if isSignedIn() && request.auth.uid == userId;
+      }
+    }
+
+    // Temporarily allow all access during development
+    match /{document=**} {
+      allow read, write: if true;
+    }
+  }
+} 

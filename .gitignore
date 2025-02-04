@@ -1,0 +1,110 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Firebase config files
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart
+firebase_app_id_file.json
+
+# Environment files
+.env
+.env.*
+*.env
+env.g.dart
+
+# API keys and secrets
+**/lib/config/secrets.dart
+**/lib/config/keys.dart
+**/assets/config/*
+**/ios/Runner/ApiKeys.swift
+**/android/app/src/main/kotlin/com/example/app/ApiKeys.kt
+
+# Local configuration
+local.properties
+keystore.properties
+key.properties
+
+# Generated files that might contain secrets
+lib/generated_plugin_registrant.dart
+
+# Credentials
+*.keystore
+*.jks
+key.jks
+upload-keystore.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.cer
+*.certSigningRequest
+*.spc
+*.pvk
+
+# macOS specific
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Xcode
+xcuserdata/
+*.xccheckout
+*.xcscmblueprint
+*.xcworkspace
+!default.xcworkspace
+xcshareddata/
+DerivedData/
+*.moved-aside
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
