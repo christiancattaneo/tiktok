@@ -7,6 +7,8 @@ class Comment {
   final String username;
   final String? userPhotoUrl;
   final String text;
+  final String? gifUrl;  // URL for GIF if one is attached
+  final String? gifId;   // GIPHY ID for the GIF
   final int likes;
   final bool likedByCreator;
   bool isLiked;
@@ -19,8 +21,10 @@ class Comment {
     required this.username,
     this.userPhotoUrl,
     required this.text,
-    required this.likes,
-    required this.likedByCreator,
+    this.gifUrl,
+    this.gifId,
+    this.likes = 0,
+    this.likedByCreator = false,
     this.isLiked = false,
     required this.createdAt,
   });
@@ -34,6 +38,8 @@ class Comment {
       username: data['username'] ?? '',
       userPhotoUrl: data['userPhotoUrl'],
       text: data['text'] ?? '',
+      gifUrl: data['gifUrl'],
+      gifId: data['gifId'],
       likes: data['likes'] ?? 0,
       likedByCreator: data['likedByCreator'] ?? false,
       isLiked: false,
@@ -48,9 +54,40 @@ class Comment {
       'username': username,
       'userPhotoUrl': userPhotoUrl,
       'text': text,
+      'gifUrl': gifUrl,
+      'gifId': gifId,
       'likes': likes,
       'likedByCreator': likedByCreator,
       'createdAt': Timestamp.fromDate(createdAt),
     };
+  }
+
+  Comment copyWith({
+    String? id,
+    String? videoId,
+    String? userId,
+    String? username,
+    String? userPhotoUrl,
+    String? text,
+    String? gifUrl,
+    String? gifId,
+    int? likes,
+    bool? likedByCreator,
+    DateTime? createdAt,
+  }) {
+    return Comment(
+      id: id ?? this.id,
+      videoId: videoId ?? this.videoId,
+      userId: userId ?? this.userId,
+      username: username ?? this.username,
+      userPhotoUrl: userPhotoUrl ?? this.userPhotoUrl,
+      text: text ?? this.text,
+      gifUrl: gifUrl ?? this.gifUrl,
+      gifId: gifId ?? this.gifId,
+      likes: likes ?? this.likes,
+      likedByCreator: likedByCreator ?? this.likedByCreator,
+      isLiked: this.isLiked,
+      createdAt: createdAt ?? this.createdAt,
+    );
   }
 } 

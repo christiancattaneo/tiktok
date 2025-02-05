@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../services/video_service.dart';
 import 'package:path/path.dart' as path;
+import 'package:video_player/video_player.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -19,6 +20,7 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   final _captionController = TextEditingController();
   final _hashtagController = TextEditingController();
   XFile? _videoFile;
+  VideoPlayerController? _previewController;
   bool _isUploading = false;
   double _uploadProgress = 0.0;
   String _uploadStatus = '';
@@ -31,6 +33,35 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     'avi': ['avi'],
     'mkv': ['mkv', 'matroska'],
   };
+
+  @override
+  void dispose() {
+    _previewController?.dispose();
+    _captionController.dispose();
+    _hashtagController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _initializePreview() async {
+    if (_videoFile == null) return;
+
+    // Dispose previous controller if exists
+    await _previewController?.dispose();
+    
+    // Create new controller
+    _previewController = VideoPlayerController.file(File(_videoFile!.path));
+    
+    try {
+      await _previewController!.initialize();
+      // Get the first frame as preview
+      await _previewController!.setVolume(0.0);
+      await _previewController!.seekTo(Duration.zero);
+      await _previewController!.pause();
+      if (mounted) setState(() {});
+    } catch (e) {
+      print('Error initializing video preview: $e');
+    }
+  }
 
   Future<void> _pickVideo() async {
     try {
@@ -86,6 +117,9 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
           _videoFile = pickedFile;
           _uploadStatus = 'Video selected: ${path.basename(pickedFile.name)}';
         });
+
+        // Initialize video preview
+        await _initializePreview();
 
         // Show recommendation if video is large
         if (sizeInMB > 15) {
@@ -222,13 +256,6 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   }
 
   @override
-  void dispose() {
-    _captionController.dispose();
-    _hashtagController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -249,23 +276,10 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                         padding: const EdgeInsets.all(32.0),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.video_library,
-                              size: 64,
-                              color: Theme.of(context).primaryColor,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              'Select Video',
-                              style: Theme.of(context).textTheme.titleLarge,
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Tap to choose a video from your gallery',
-                              style: Theme.of(context).textTheme.bodyMedium,
-                              textAlign: TextAlign.center,
-                            ),
+                          children: const [
+                            Icon(Icons.video_library, size: 48),
+                            SizedBox(height: 16),
+                            Text('Select Video'),
                           ],
                         ),
                       ),
@@ -273,41 +287,37 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                   )
                 else
                   Card(
-                    child: AspectRatio(
-                      aspectRatio: 9 / 16,
-                      child: Stack(
-                        alignment: Alignment.center,
-                        children: [
-                          Container(
-                            color: Colors.black87,
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(
-                                  Icons.video_file,
-                                  size: 64,
-                                  color: Colors.white,
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  path.basename(_videoFile!.name),
-                                  style: const TextStyle(color: Colors.white),
-                                ),
-                              ],
-                            ),
+                    child: Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        if (_previewController?.value.isInitialized ?? false)
+                          AspectRatio(
+                            aspectRatio: _previewController!.value.aspectRatio,
+                            child: VideoPlayer(_previewController!),
+                          )
+                        else
+                          const Padding(
+                            padding: EdgeInsets.all(32.0),
+                            child: CircularProgressIndicator(),
                           ),
-                          if (!_isUploading)
-                            Positioned(
-                              bottom: 8,
-                              right: 8,
-                              child: IconButton(
-                                icon: const Icon(Icons.edit),
-                                color: Colors.white,
-                                onPressed: _pickVideo,
-                              ),
-                            ),
-                        ],
-                      ),
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: IconButton(
+                            icon: const Icon(Icons.close),
+                            onPressed: _isUploading
+                                ? null
+                                : () {
+                                    setState(() {
+                                      _videoFile = null;
+                                      _uploadStatus = '';
+                                    });
+                                    _previewController?.dispose();
+                                    _previewController = null;
+                                  },
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 const SizedBox(height: 16),

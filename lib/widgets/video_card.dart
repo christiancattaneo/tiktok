@@ -36,6 +36,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
   late Animation<double> _likeAnimation;
   bool _isLiked = false;
   bool _isLoading = false;
+  bool _showHeartOverlay = false;
 
   @override
   void initState() {
@@ -48,6 +49,15 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
       CurvedAnimation(parent: _likeController, curve: Curves.easeInOut),
     );
     _checkLikeStatus();
+
+    // Listen to animation status to hide heart overlay
+    _likeController.addStatusListener((status) {
+      if (status == AnimationStatus.completed) {
+        setState(() {
+          _showHeartOverlay = false;
+        });
+      }
+    });
   }
 
   @override
@@ -81,6 +91,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
 
     setState(() {
       _isLoading = true;
+      _showHeartOverlay = true;
     });
 
     try {
@@ -89,9 +100,6 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
         setState(() {
           _isLiked = isLiked;
         });
-        if (isLiked) {
-          _likeController.forward().then((_) => _likeController.reverse());
-        }
       }
     } catch (e) {
       if (mounted) {
@@ -151,13 +159,48 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
     return Stack(
       fit: StackFit.expand,
       children: [
-        VideoPlayerWidget(
-          video: widget.video,
-          autoPlay: widget.autoPlay,
-          shouldInitialize: widget.shouldInitialize,
-          fit: widget.fit,
-          preloadOnly: widget.preloadOnly,
+        // Video player with double tap gesture
+        GestureDetector(
+          onDoubleTap: () async {
+            if (!_isLoading) {
+              final userId = context.read<AuthProvider>().userId;
+              if (userId != null) {
+                // Show heart animation
+                setState(() {
+                  _showHeartOverlay = true;
+                });
+                _likeController.forward().then((_) => _likeController.reverse());
+                // Toggle like
+                await _toggleLike();
+              }
+            }
+          },
+          child: VideoPlayerWidget(
+            video: widget.video,
+            autoPlay: widget.autoPlay,
+            shouldInitialize: widget.shouldInitialize,
+            fit: widget.fit,
+            preloadOnly: widget.preloadOnly,
+          ),
         ),
+
+        // Like animation overlay
+        if (_showHeartOverlay)
+          Positioned.fill(
+            child: ScaleTransition(
+              scale: _likeAnimation,
+              child: Container(
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.3),
+                ),
+                child: const Icon(
+                  Icons.favorite,
+                  color: Colors.red,
+                  size: 100,
+                ),
+              ),
+            ),
+          ),
 
         // Gradient overlay
         Positioned.fill(

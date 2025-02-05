@@ -7,20 +7,32 @@ import 'providers/auth_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/main_screen.dart';
+import 'app.dart';
+import 'services/config_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
   
+  // Initialize configuration (including GIPHY)
+  await ConfigService.initialize();
+
   // Initialize Firestore settings
   FirebaseFirestore.instance.settings = const Settings(
     persistenceEnabled: true,
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
   
-  runApp(const MyApp());
+  runApp(
+    ChangeNotifierProvider(
+      create: (_) => AuthProvider(),
+      child: const App(),
+    ),
+  );
 }
 
 class MyApp extends StatelessWidget {

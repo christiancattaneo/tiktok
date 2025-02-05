@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:giphy_picker/giphy_picker.dart';
 import '../models/comment.dart';
 import '../models/video.dart';
 import '../providers/auth_provider.dart';
 import '../services/video_service.dart';
+import '../services/config_service.dart';
 import '../screens/user_profile_screen.dart';
 
 class CommentsSheet extends StatefulWidget {
@@ -25,6 +27,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   late AnimationController _likeController;
   late Animation<double> _likeAnimation;
   Map<String, bool> _likedComments = {};
+  GiphyGif? _selectedGif;
 
   @override
   void initState() {
@@ -45,9 +48,23 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
     super.dispose();
   }
 
+  Future<void> _pickGif() async {
+    final gif = await GiphyPicker.pickGif(
+      context: context,
+      apiKey: ConfigService.giphyApiKey,
+      rating: GiphyRating.pg13,
+    );
+    
+    if (gif != null && mounted) {
+      setState(() {
+        _selectedGif = gif;
+      });
+    }
+  }
+
   Future<void> _submitComment() async {
     final text = _commentController.text.trim();
-    if (text.isEmpty) return;
+    if (text.isEmpty && _selectedGif == null) return;
 
     final userId = context.read<AuthProvider>().userId;
     final user = context.read<AuthProvider>().user;
@@ -72,9 +89,15 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
         username: user.username,
         text: text,
         userPhotoUrl: user.photoUrl,
+        gifUrl: _selectedGif?.images.original.url,
+        gifId: _selectedGif?.id,
       );
+      
       if (mounted) {
         _commentController.clear();
+        setState(() {
+          _selectedGif = null;
+        });
       }
     } catch (e) {
       if (mounted) {
@@ -195,22 +218,16 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
               stream: _videoService.getVideoComments(widget.video.id),
               builder: (context, snapshot) {
                 if (snapshot.hasError) {
-                  return Center(
-                    child: Text('Error: ${snapshot.error}'),
-                  );
+                  return Center(child: Text('Error: ${snapshot.error}'));
                 }
 
                 if (!snapshot.hasData) {
-                  return const Center(
-                    child: CircularProgressIndicator(),
-                  );
+                  return const Center(child: CircularProgressIndicator());
                 }
 
                 final comments = snapshot.data!;
                 if (comments.isEmpty) {
-                  return const Center(
-                    child: Text('No comments yet'),
-                  );
+                  return const Center(child: Text('No comments yet'));
                 }
 
                 return ListView.builder(
@@ -223,78 +240,77 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                       _checkLikeStatus(comment);
                     }
 
-                    return ListTile(
-                      leading: GestureDetector(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => UserProfileScreen(
-                                userId: comment.userId,
-                                username: comment.username,
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        ListTile(
+                          leading: GestureDetector(
+                            onTap: () => Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => UserProfileScreen(
+                                  userId: comment.userId,
+                                  username: comment.username,
+                                ),
                               ),
                             ),
-                          );
-                        },
-                        child: _buildProfilePhoto(comment.userPhotoUrl),
-                      ),
-                      title: Row(
-                        children: [
-                          GestureDetector(
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => UserProfileScreen(
-                                    userId: comment.userId,
-                                    username: comment.username,
+                            child: _buildProfilePhoto(comment.userPhotoUrl),
+                          ),
+                          title: Text('@${comment.username}'),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (comment.text.isNotEmpty)
+                                Text(comment.text),
+                              if (comment.gifUrl != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: ClipRRect(
+                                    borderRadius: BorderRadius.circular(8),
+                                    child: Image.network(
+                                      comment.gifUrl!,
+                                      height: 150,
+                                      fit: BoxFit.cover,
+                                      loadingBuilder: (context, child, loadingProgress) {
+                                        if (loadingProgress == null) return child;
+                                        return const SizedBox(
+                                          height: 150,
+                                          child: Center(
+                                            child: CircularProgressIndicator(),
+                                          ),
+                                        );
+                                      },
+                                    ),
                                   ),
                                 ),
-                              );
-                            },
-                            child: Text(
-                              '@${comment.username}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
+                            ],
+                          ),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              ScaleTransition(
+                                scale: _likeAnimation,
+                                child: IconButton(
+                                  icon: Icon(
+                                    _likedComments[comment.id] == true
+                                        ? Icons.favorite
+                                        : Icons.favorite_border,
+                                    color: _likedComments[comment.id] == true
+                                        ? Colors.red
+                                        : null,
+                                  ),
+                                  onPressed: () => _toggleLike(comment),
+                                ),
                               ),
-                            ),
+                              if (isAuthor)
+                                IconButton(
+                                  icon: const Icon(Icons.delete_outline),
+                                  onPressed: () => _deleteComment(comment),
+                                ),
+                            ],
                           ),
-                          if (comment.likedByCreator)
-                            Padding(
-                              padding: const EdgeInsets.only(left: 4),
-                              child: Icon(
-                                Icons.verified,
-                                size: 14,
-                                color: Theme.of(context).primaryColor,
-                              ),
-                            ),
-                        ],
-                      ),
-                      subtitle: Text(comment.text),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            icon: Icon(
-                              comment.isLiked ? Icons.favorite : Icons.favorite_border,
-                              size: 16,
-                              color: comment.isLiked ? Colors.red : null,
-                            ),
-                            onPressed: () => _toggleLike(comment),
-                          ),
-                          Text(
-                            '${comment.likes}',
-                            style: const TextStyle(fontSize: 12),
-                          ),
-                          if (isAuthor) ...[
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline),
-                              onPressed: () => _deleteComment(comment),
-                            ),
-                          ],
-                        ],
-                      ),
+                        ),
+                      ],
                     );
                   },
                 );
@@ -302,11 +318,38 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
             ),
           ),
 
-          // Comment Input
+          // Selected GIF preview
+          if (_selectedGif != null)
+            Container(
+              height: 100,
+              margin: const EdgeInsets.symmetric(horizontal: 16),
+              child: Stack(
+                alignment: Alignment.topRight,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(8),
+                    child: Image.network(
+                      _selectedGif!.images.original.url,
+                      fit: BoxFit.cover,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.close, color: Colors.white),
+                    onPressed: () => setState(() => _selectedGif = null),
+                  ),
+                ],
+              ),
+            ),
+
+          // Comment input
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Row(
               children: [
+                IconButton(
+                  icon: const Icon(Icons.gif_box_outlined),
+                  onPressed: _isSubmitting ? null : _pickGif,
+                ),
                 Expanded(
                   child: TextField(
                     controller: _commentController,
@@ -315,10 +358,11 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                       border: OutlineInputBorder(),
                     ),
                     maxLines: null,
+                    keyboardType: TextInputType.multiline,
                     textCapitalization: TextCapitalization.sentences,
+                    enabled: !_isSubmitting,
                   ),
                 ),
-                const SizedBox(width: 8),
                 IconButton(
                   icon: _isSubmitting
                       ? const SizedBox(

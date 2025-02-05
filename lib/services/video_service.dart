@@ -274,9 +274,12 @@ class VideoService {
     required String username,
     required String text,
     String? userPhotoUrl,
+    String? gifUrl,
+    String? gifId,
   }) async {
     try {
       print('Creating comment with photo URL: $userPhotoUrl');
+      print('Creating comment with GIF URL: $gifUrl');
       
       final commentRef = _firestore
           .collection('videos')
@@ -291,12 +294,14 @@ class VideoService {
         username: username,
         userPhotoUrl: userPhotoUrl,
         text: text,
+        gifUrl: gifUrl,
+        gifId: gifId,
         likes: 0,
         likedByCreator: false,
         createdAt: DateTime.now(),
       );
 
-      print('Comment object created with photo URL: ${comment.userPhotoUrl}');
+      print('Comment object created');
       final map = comment.toMap();
       print('Comment map for Firestore: $map');
 
