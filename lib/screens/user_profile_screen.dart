@@ -232,7 +232,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
                         if (videos.isEmpty) {
                           return const Center(child: Text('No videos yet'));
                         }
-                        return _buildVideoGrid(videos);
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _buildVideoGrid(videos),
+                        );
                       },
                     ),
 
@@ -250,7 +253,10 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
                         if (videos.isEmpty) {
                           return const Center(child: Text('No liked videos'));
                         }
-                        return _buildVideoGrid(videos);
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _buildVideoGrid(videos),
+                        );
                       },
                     ),
                   ],
@@ -292,40 +298,64 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
           child: Stack(
             fit: StackFit.expand,
             children: [
-              if (video.thumbnailUrl?.isNotEmpty ?? false)
-                Image.network(
-                  video.thumbnailUrl!,
-                  fit: BoxFit.cover,
-                  errorBuilder: (context, error, stackTrace) => Container(
-                    color: Colors.black,
-                    child: const Icon(Icons.video_library, color: Colors.white54),
-                  ),
-                )
-              else
-                Container(
+              Container(
+                decoration: BoxDecoration(
                   color: Colors.black,
-                  child: const Icon(Icons.video_library, color: Colors.white54),
                 ),
+                child: VideoPlayerWidget(
+                  video: video,
+                  autoPlay: false,
+                  shouldInitialize: false,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VideoPlayerFullscreen(
+                          video: video,
+                          initialIndex: index,
+                          videos: videos,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Container(
+                color: Colors.black.withOpacity(0.1),
+              ),
               Positioned(
                 bottom: 4,
                 right: 4,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(
-                      Icons.play_arrow,
-                      color: Colors.white,
-                      size: 16,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${video.views}',
-                      style: const TextStyle(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(4),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.play_arrow,
                         color: Colors.white,
-                        fontSize: 12,
+                        size: 16,
                       ),
-                    ),
-                  ],
+                      const SizedBox(width: 4),
+                      Text(
+                        '${video.views}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ],

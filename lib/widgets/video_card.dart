@@ -165,12 +165,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
             if (!_isLoading) {
               final userId = context.read<AuthProvider>().userId;
               if (userId != null) {
-                // Show heart animation
-                setState(() {
-                  _showHeartOverlay = true;
-                });
-                _likeController.forward().then((_) => _likeController.reverse());
-                // Toggle like
+                // Toggle like without showing heart animation
                 await _toggleLike();
               }
             }
@@ -183,24 +178,6 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
             preloadOnly: widget.preloadOnly,
           ),
         ),
-
-        // Like animation overlay
-        if (_showHeartOverlay)
-          Positioned.fill(
-            child: ScaleTransition(
-              scale: _likeAnimation,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.3),
-                ),
-                child: const Icon(
-                  Icons.favorite,
-                  color: Colors.red,
-                  size: 100,
-                ),
-              ),
-            ),
-          ),
 
         // Gradient overlay
         Positioned.fill(
@@ -288,15 +265,12 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
           bottom: 16,
           child: Column(
             children: [
-              ScaleTransition(
-                scale: _likeAnimation,
-                child: IconButton(
-                  icon: Icon(
-                    _isLiked ? Icons.favorite : Icons.favorite_border,
-                    color: _isLiked ? Colors.red : Colors.white,
-                  ),
-                  onPressed: _isLoading ? null : _toggleLike,
+              IconButton(
+                icon: Icon(
+                  _isLiked ? Icons.favorite : Icons.favorite_border,
+                  color: _isLiked ? Colors.red : Colors.white,
                 ),
+                onPressed: _isLoading ? null : _toggleLike,
               ),
               Text(
                 '${widget.video.likes}',

@@ -5,6 +5,7 @@ import '../models/video.dart';
 import '../services/video_service.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+import 'dart:async';
 
 class VideoPlayerWidget extends StatefulWidget {
   final Video video;
@@ -33,6 +34,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   String? _errorMessage;
   final _videoService = VideoService();
   ImageProvider? _thumbnailImage;
+  bool _isDisposed = false;
   
   // Custom cache configuration
   static const int _maxCacheSize = 500 * 1024 * 1024; // 500MB
@@ -87,7 +89,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         key: '${widget.video.id}_preload',
       );
       
-      if (!mounted) return;
+      if (_isDisposed) return;
 
       // Initialize controller just to verify the file
       final tempController = VideoPlayerController.file(videoFile);
@@ -130,8 +132,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Future<void> _initializeVideo() async {
-    if (_controller != null) return;
+    if (_controller != null || _isDisposed) return;
 
+    if (!mounted) return;
     setState(() {
       _errorMessage = null;
     });
@@ -157,35 +160,42 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         );
       }
 
-      if (!mounted) return;
+      if (_isDisposed) return;
 
       _controller = VideoPlayerController.file(videoFile);
 
       _controller!.addListener(() {
-        if (!mounted) return;
+        if (_isDisposed) return;
         
         final error = _controller!.value.errorDescription;
         if (error != null && error.isNotEmpty) {
           print('Video player error: $error');
-          setState(() {
-            _errorMessage = 'Video playback error: $error';
-          });
+          if (mounted) {
+            setState(() {
+              _errorMessage = 'Video playback error: $error';
+            });
+          }
         }
       });
 
       await _controller!.initialize();
       
-      if (!mounted) return;
+      if (_isDisposed) {
+        await _controller?.dispose();
+        return;
+      }
 
       _controller!.setLooping(true);
       _controller!.addListener(_videoListener);
       
-      setState(() {
-        _isInitialized = true;
-        if (widget.autoPlay) {
-          _controller!.play();
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _isInitialized = true;
+          if (widget.autoPlay) {
+            _controller!.play();
+          }
+        });
+      }
       
       // Remove preload version if it exists
       _videoCache.removeFile('${widget.video.id}_preload');
@@ -193,7 +203,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     } catch (e, stackTrace) {
       print('Error initializing video: $e');
       print('Stack trace: $stackTrace');
-      if (mounted) {
+      if (mounted && !_isDisposed) {
         setState(() {
           _errorMessage = 'Failed to load video: ${e.toString()}';
           _isInitialized = false;
@@ -204,23 +214,36 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   }
 
   Future<void> _loadThumbnail() async {
-    if (widget.video.thumbnailUrl != null && widget.video.thumbnailUrl!.isNotEmpty) {
-      setState(() {
-        _thumbnailImage = NetworkImage(widget.video.thumbnailUrl!);
-      });
-    } else {
-      // For videos without thumbnails, show a placeholder with video duration
-      setState(() {
-        _isInitialized = false;
-        _thumbnailImage = null;
-      });
+    if (_isDisposed) return;
+    
+    try {
+      if (widget.video.thumbnailUrl != null && widget.video.thumbnailUrl!.isNotEmpty) {
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _thumbnailImage = NetworkImage(widget.video.thumbnailUrl!);
+          });
+        }
+        return;
+      }
 
-      // Initialize video just to get metadata if needed
+      // If no thumbnail URL, try to get first frame from video
       final tempController = VideoPlayerController.networkUrl(
         Uri.parse(widget.video.videoUrl),
       );
+
       try {
-        await tempController.initialize();
+        await tempController.initialize().timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException('Video metadata loading timed out');
+          },
+        );
+
+        if (_isDisposed) {
+          await tempController.dispose();
+          return;
+        }
+
         if (mounted) {
           setState(() {
             _controller = tempController;
@@ -230,6 +253,20 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       } catch (e) {
         print('Error loading video metadata: $e');
         await tempController.dispose();
+        if (mounted && !_isDisposed) {
+          setState(() {
+            _isInitialized = false;
+            _thumbnailImage = null;
+          });
+        }
+      }
+    } catch (e) {
+      print('Error in _loadThumbnail: $e');
+      if (mounted && !_isDisposed) {
+        setState(() {
+          _isInitialized = false;
+          _thumbnailImage = null;
+        });
       }
     }
   }
@@ -254,7 +291,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     _controller?.pause();
     _controller?.dispose();
     _controller = null;
-    if (mounted) {
+    if (mounted && !_isDisposed) {
       setState(() {
         _isInitialized = false;
       });
@@ -263,6 +300,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   @override
   void dispose() {
+    _isDisposed = true;
     _controller?.removeListener(_videoListener);
     _disposeController();
     super.dispose();
@@ -275,32 +313,26 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         color: Colors.black,
         child: _controller != null && _isInitialized
             ? Center(
-                child: SizedBox.expand(
-                  child: FittedBox(
-                    fit: widget.fit,
-                    child: SizedBox(
-                      width: _controller!.value.size.width,
-                      height: _controller!.value.size.height,
-                      child: VideoPlayer(_controller!),
-                    ),
-                  ),
+                child: AspectRatio(
+                  aspectRatio: 9/16,
+                  child: VideoPlayer(_controller!),
                 ),
               )
             : _thumbnailImage != null
-                ? Image(
-                    image: _thumbnailImage!,
-                    fit: widget.fit,
-                    width: double.infinity,
-                    height: double.infinity,
-                    errorBuilder: (context, error, stackTrace) {
-                      return const Center(
-                        child: Icon(
-                          Icons.image_not_supported,
-                          color: Colors.white54,
-                          size: 48,
-                        ),
-                      );
-                    },
+                ? SizedBox.expand(
+                    child: Image(
+                      image: _thumbnailImage!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return const Center(
+                          child: Icon(
+                            Icons.image_not_supported,
+                            color: Colors.white54,
+                            size: 48,
+                          ),
+                        );
+                      },
+                    ),
                   )
                 : const Center(
                     child: Icon(
@@ -349,13 +381,12 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
         color: Colors.black,
         child: _thumbnailImage != null
             ? Stack(
-                fit: StackFit.expand,
                 children: [
-                  Image(
-                    image: _thumbnailImage!,
-                    fit: widget.fit,
-                    width: double.infinity,
-                    height: double.infinity,
+                  SizedBox.expand(
+                    child: Image(
+                      image: _thumbnailImage!,
+                      fit: BoxFit.cover,
+                    ),
                   ),
                   const Center(
                     child: CircularProgressIndicator(
@@ -374,6 +405,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     return GestureDetector(
       onTap: () {
+        if (!mounted || _isDisposed) return;
         setState(() {
           if (_controller!.value.isPlaying) {
             _controller!.pause();
@@ -385,30 +417,24 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       child: Container(
         color: Colors.black,
         child: Center(
-          child: SizedBox.expand(
-            child: FittedBox(
-              fit: widget.fit,
-              child: SizedBox(
-                width: _controller!.value.size.width,
-                height: _controller!.value.size.height,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    VideoPlayer(_controller!),
-                    if (!_controller!.value.isPlaying)
-                      Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withOpacity(0.3),
-                        ),
-                        child: const Icon(
-                          Icons.play_arrow,
-                          size: 64,
-                          color: Colors.white,
-                        ),
-                      ),
-                  ],
-                ),
-              ),
+          child: AspectRatio(
+            aspectRatio: 9/16, // Force portrait video aspect ratio
+            child: Stack(
+              alignment: Alignment.center,
+              children: [
+                VideoPlayer(_controller!),
+                if (!_controller!.value.isPlaying)
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.3),
+                    ),
+                    child: const Icon(
+                      Icons.play_arrow,
+                      size: 64,
+                      color: Colors.white,
+                    ),
+                  ),
+              ],
             ),
           ),
         ),

@@ -30,7 +30,7 @@ void main() async {
   runApp(
     ChangeNotifierProvider(
       create: (_) => AuthProvider(),
-      child: const App(),
+      child: const MyApp(),
     ),
   );
 }

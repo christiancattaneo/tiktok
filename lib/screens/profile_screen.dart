@@ -9,6 +9,8 @@ import '../models/user.dart' as app_models;
 import '../widgets/video_card.dart';
 import '../widgets/video_player_widget.dart';
 import 'edit_profile_screen.dart';
+import 'video_player_fullscreen.dart';
+import 'user_profile_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -189,29 +191,35 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        Column(
-                          children: [
-                            Text(
-                              '${user.followersCount}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        InkWell(
+                          onTap: () => _showFollowers(context, user.id),
+                          child: Column(
+                            children: [
+                              Text(
+                                '${user.followersCount}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const Text('Followers'),
-                          ],
+                              const Text('Followers'),
+                            ],
+                          ),
                         ),
-                        Column(
-                          children: [
-                            Text(
-                              '${user.followingCount}',
-                              style: const TextStyle(
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
+                        InkWell(
+                          onTap: () => _showFollowing(context, user.id),
+                          child: Column(
+                            children: [
+                              Text(
+                                '${user.followingCount}',
+                                style: const TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            ),
-                            const Text('Following'),
-                          ],
+                              const Text('Following'),
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -249,7 +257,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           return const Center(child: Text('No videos yet'));
                         }
 
-                        return _buildVideoGrid(videos);
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _buildVideoGrid(videos),
+                        );
                       },
                     ),
 
@@ -270,7 +281,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                           return const Center(child: Text('No liked videos'));
                         }
 
-                        return _buildVideoGrid(videos);
+                        return SingleChildScrollView(
+                          physics: const AlwaysScrollableScrollPhysics(),
+                          child: _buildVideoGrid(videos),
+                        );
                       },
                     ),
                   ],
@@ -285,67 +299,94 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   Widget _buildVideoGrid(List<Video> videos) {
     return GridView.builder(
-      padding: const EdgeInsets.all(8),
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
       gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
         crossAxisCount: 3,
-        crossAxisSpacing: 8,
-        mainAxisSpacing: 8,
-        childAspectRatio: 1.0,
+        childAspectRatio: 0.8,
+        crossAxisSpacing: 2,
+        mainAxisSpacing: 2,
       ),
       itemCount: videos.length,
       itemBuilder: (context, index) {
         final video = videos[index];
         return GestureDetector(
           onTap: () {
-            // TODO: Open video in full screen
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => VideoPlayerFullscreen(
+                  video: video,
+                  initialIndex: index,
+                  videos: videos,
+                ),
+              ),
+            );
           },
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                Container(
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                ),
+                child: VideoPlayerWidget(
+                  video: video,
+                  autoPlay: false,
+                  shouldInitialize: false,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => VideoPlayerFullscreen(
+                          video: video,
+                          initialIndex: index,
+                          videos: videos,
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              Container(
+                color: Colors.black.withOpacity(0.1),
+              ),
+              Positioned(
+                bottom: 4,
+                right: 4,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.black,
+                    color: Colors.black.withOpacity(0.6),
+                    borderRadius: BorderRadius.circular(4),
                   ),
-                  child: VideoPlayerWidget(
-                    video: video,
-                    autoPlay: false,
-                    shouldInitialize: false,
-                    fit: BoxFit.cover,
-                  ),
-                ),
-                Positioned(
-                  bottom: 4,
-                  right: 4,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.black.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.visibility,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(
+                        Icons.play_arrow,
+                        color: Colors.white,
+                        size: 16,
+                      ),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${video.views}',
+                        style: const TextStyle(
                           color: Colors.white,
-                          size: 16,
+                          fontSize: 12,
                         ),
-                        const SizedBox(width: 4),
-                        Text(
-                          '${video.views}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
@@ -400,6 +441,18 @@ class _FollowersSheet extends StatelessWidget {
                       ),
                       title: Text('@${follower.username}'),
                       subtitle: Text(follower.bio),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserProfileScreen(
+                              userId: follower.id,
+                              username: follower.username,
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -459,6 +512,18 @@ class _FollowingSheet extends StatelessWidget {
                       ),
                       title: Text('@${followedUser.username}'),
                       subtitle: Text(followedUser.bio),
+                      onTap: () {
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => UserProfileScreen(
+                              userId: followedUser.id,
+                              username: followedUser.username,
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );

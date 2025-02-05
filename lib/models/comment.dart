@@ -10,7 +10,7 @@ class Comment {
   final String? gifUrl;  // URL for GIF if one is attached
   final String? gifId;   // GIPHY ID for the GIF
   final int likes;
-  final bool likedByCreator;
+  bool likedByCreator;
   bool isLiked;
   final DateTime createdAt;
 
