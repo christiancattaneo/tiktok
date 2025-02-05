@@ -146,6 +146,19 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
     }
   }
 
+  Widget _buildProfilePhoto(String? photoUrl, {double radius = 16}) {
+    return CircleAvatar(
+      radius: radius,
+      backgroundColor: Colors.grey[800],
+      backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+          ? NetworkImage(photoUrl)
+          : null,
+      child: photoUrl == null || photoUrl.isEmpty
+          ? Icon(Icons.person, color: Colors.white, size: radius)
+          : null,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Container(
@@ -206,7 +219,6 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                     final comment = comments[index];
                     final isAuthor = comment.userId == context.read<AuthProvider>().userId;
 
-                    // Check like status when comment is first displayed
                     if (!_likedComments.containsKey(comment.id)) {
                       _checkLikeStatus(comment);
                     }
@@ -224,21 +236,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                             ),
                           );
                         },
-                        child: Builder(
-                          builder: (context) {
-                            print('Displaying comment from ${comment.username} with photo URL: ${comment.userPhotoUrl}');
-                            return CircleAvatar(
-                              radius: 16,
-                              backgroundColor: Colors.grey[800],
-                              backgroundImage: comment.userPhotoUrl != null && comment.userPhotoUrl!.isNotEmpty
-                                  ? NetworkImage(comment.userPhotoUrl!)
-                                  : null,
-                              child: comment.userPhotoUrl == null || comment.userPhotoUrl!.isEmpty
-                                  ? const Icon(Icons.person, color: Colors.white)
-                                  : null,
-                            );
-                          },
-                        ),
+                        child: _buildProfilePhoto(comment.userPhotoUrl),
                       ),
                       title: Row(
                         children: [

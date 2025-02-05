@@ -6,6 +6,8 @@ import '../services/video_service.dart';
 import '../screens/user_profile_screen.dart';
 import 'video_player_widget.dart';
 import 'comments_sheet.dart';
+import '../services/user_service.dart';
+import '../models/user.dart' as app_models;
 
 class VideoCard extends StatefulWidget {
   final Video video;
@@ -25,6 +27,7 @@ class VideoCard extends StatefulWidget {
 
 class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMixin {
   final _videoService = VideoService();
+  final _userService = UserService();
   late AnimationController _likeController;
   late Animation<double> _likeAnimation;
   bool _isLiked = false;
@@ -120,17 +123,22 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
   }
 
   Widget _buildProfilePhoto() {
-    return CircleAvatar(
-      radius: 16,
-      backgroundColor: Colors.grey[800],
-      backgroundImage: widget.video.creatorPhotoUrl != null && 
-                      widget.video.creatorPhotoUrl!.isNotEmpty
-          ? NetworkImage(widget.video.creatorPhotoUrl!)
-          : null,
-      child: widget.video.creatorPhotoUrl == null || 
-             widget.video.creatorPhotoUrl!.isEmpty
-          ? const Icon(Icons.person, color: Colors.white, size: 16)
-          : null,
+    return StreamBuilder<app_models.User?>(
+      stream: _userService.getUserStream(widget.video.userId),
+      builder: (context, snapshot) {
+        final photoUrl = snapshot.data?.photoUrl ?? widget.video.creatorPhotoUrl;
+        
+        return CircleAvatar(
+          radius: 16,
+          backgroundColor: Colors.grey[800],
+          backgroundImage: photoUrl != null && photoUrl.isNotEmpty
+              ? NetworkImage(photoUrl)
+              : null,
+          child: photoUrl == null || photoUrl.isEmpty
+              ? const Icon(Icons.person, color: Colors.white, size: 16)
+              : null,
+        );
+      },
     );
   }
 
