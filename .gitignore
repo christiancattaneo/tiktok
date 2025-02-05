@@ -71,7 +71,6 @@ keystore.properties
 key.properties
 
 # Generated files that might contain secrets
-lib/generated_plugin_registrant.dart
 
 # Credentials
 *.keystore

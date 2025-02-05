@@ -94,22 +94,42 @@ class VideoService {
     List<String> hashtags = const [],
   }) async {
     try {
-      final videoDoc = await _firestore.collection('videos').add({
+      print('Creating video metadata:');
+      print('- userId: $userId');
+      print('- videoUrl: $videoUrl');
+      print('- caption: $caption');
+      print('- username: $creatorUsername');
+      print('- hashtags: $hashtags');
+      
+      final data = {
         'userId': userId,
         'creatorUsername': creatorUsername,
         'creatorPhotoUrl': creatorPhotoUrl,
         'videoUrl': videoUrl,
         'caption': caption,
-        'thumbnailUrl': thumbnailUrl ?? '',  // Use empty string if null
+        'thumbnailUrl': thumbnailUrl ?? '',
         'hashtags': hashtags,
         'likes': 0,
         'views': 0,
+        'commentCount': 0,
         'createdAt': FieldValue.serverTimestamp(),
-      });
+      };
+      
+      final videoDoc = await _firestore.collection('videos').add(data);
+      print('Created video document with ID: ${videoDoc.id}');
 
-      return videoDoc.id.isNotEmpty;
-    } catch (e) {
+      // Verify the document was created
+      final verifyDoc = await videoDoc.get();
+      if (!verifyDoc.exists) {
+        print('Error: Video document not found after creation');
+        return false;
+      }
+      
+      print('Video metadata created successfully');
+      return true;
+    } catch (e, stackTrace) {
       print('Error creating video metadata: $e');
+      print('Stack trace: $stackTrace');
       return false;
     }
   }
@@ -118,13 +138,16 @@ class VideoService {
   Stream<List<Video>> getVideoFeed() {
     return _firestore
         .collection('videos')
-        .where('userId', isNotEqualTo: 'placeholder_user') // Filter out sample videos
-        .orderBy('userId')  // Required for compound queries
         .orderBy('createdAt', descending: true)
-        .limit(10)
+        .limit(20)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          final videos = snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          print('Feed loaded ${videos.length} videos');  // Debug log
+          for (var video in videos) {
+            print('Video: ${video.id}, created: ${video.createdAt}, url: ${video.videoUrl}');
+          }
+          return videos;
         });
   }
 

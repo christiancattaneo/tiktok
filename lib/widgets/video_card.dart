@@ -13,12 +13,16 @@ class VideoCard extends StatefulWidget {
   final Video video;
   final bool autoPlay;
   final bool shouldInitialize;
+  final BoxFit fit;
+  final bool preloadOnly;
 
   const VideoCard({
     super.key,
     required this.video,
     this.autoPlay = true,
     this.shouldInitialize = true,
+    this.fit = BoxFit.contain,
+    this.preloadOnly = false,
   });
 
   @override
@@ -147,11 +151,12 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
     return Stack(
       fit: StackFit.expand,
       children: [
-        // Video player
         VideoPlayerWidget(
           video: widget.video,
           autoPlay: widget.autoPlay,
           shouldInitialize: widget.shouldInitialize,
+          fit: widget.fit,
+          preloadOnly: widget.preloadOnly,
         ),
 
         // Gradient overlay

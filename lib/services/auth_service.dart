@@ -184,12 +184,7 @@ class AuthService {
   // Sign out
   Future<void> signOut() async {
     try {
-      // Clear any persisted auth state
-      await _auth.setPersistence(Persistence.NONE);
-      // Sign out
       await _auth.signOut();
-      // Reset persistence back to default
-      await _auth.setPersistence(Persistence.LOCAL);
     } catch (e) {
       print('Error during sign out: $e');
       rethrow;

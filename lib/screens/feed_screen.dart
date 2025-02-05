@@ -94,14 +94,18 @@ class _FeedScreenState extends State<FeedScreen> {
                 },
                 itemCount: _videos.length,
                 itemBuilder: (context, index) {
-                  final shouldInitialize = (index >= _currentPage - 1) && 
-                                        (index <= _currentPage + 1);
+                  // Initialize current video and next 2 videos
+                  final isCurrentVideo = index == _currentPage;
+                  final shouldPreload = index > _currentPage && 
+                                      index <= _currentPage + 2;
+                  final shouldInitialize = index == _currentPage;
                   
                   return VideoCard(
                     key: ValueKey(_videos[index].id),
                     video: _videos[index],
-                    autoPlay: index == _currentPage,
+                    autoPlay: isCurrentVideo,
                     shouldInitialize: shouldInitialize,
+                    preloadOnly: shouldPreload,
                   );
                 },
               ),
