@@ -4,6 +4,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
 import 'providers/auth_provider.dart';
+import 'providers/video_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/main_screen.dart';
@@ -28,8 +29,11 @@ void main() async {
   );
   
   runApp(
-    ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => VideoProvider()),
+      ],
       child: const MyApp(),
     ),
   );
@@ -40,53 +44,50 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AuthProvider(),
-      child: MaterialApp(
-        title: 'ReelAI',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
-          useMaterial3: true,
-        ),
-        home: Consumer<AuthProvider>(
-          builder: (context, authProvider, _) {
-            if (authProvider.isLoading) {
-              return const Scaffold(
-                body: Center(
-                  child: CircularProgressIndicator(),
+    return MaterialApp(
+      title: 'VibeTok',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: Consumer<AuthProvider>(
+        builder: (context, authProvider, _) {
+          if (authProvider.isLoading) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          
+          // Show error if there is one
+          if (authProvider.error != null) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      authProvider.error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        // This will trigger a reload of the auth state
+                        authProvider.signOut();
+                      },
+                      child: const Text('Try Again'),
+                    ),
+                  ],
                 ),
-              );
-            }
-            
-            // Show error if there is one
-            if (authProvider.error != null) {
-              return Scaffold(
-                body: Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Text(
-                        authProvider.error!,
-                        style: const TextStyle(color: Colors.red),
-                      ),
-                      ElevatedButton(
-                        onPressed: () {
-                          // This will trigger a reload of the auth state
-                          authProvider.signOut();
-                        },
-                        child: const Text('Try Again'),
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            }
-            
-            return authProvider.isAuthenticated
-                ? const MainScreen()
-                : const LoginScreen();
-          },
-        ),
+              ),
+            );
+          }
+          
+          return authProvider.isAuthenticated
+              ? const MainScreen()
+              : const LoginScreen();
+        },
       ),
     );
   }

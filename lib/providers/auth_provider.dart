@@ -117,14 +117,24 @@ class AuthProvider with ChangeNotifier {
   }
 
   Future<void> signOut() async {
+    print('🔑 Sign out process started');
     try {
       _isLoading = true;
-      _error = null;
       notifyListeners();
+      
       await _authService.signOut();
+      _user = null;
+      _firebaseUser = null;
+      _error = null;
+      
+      print('🔑 Sign out completed successfully');
+    } catch (e) {
+      print('🔑 Error during sign out: $e');
+      _error = e.toString();
     } finally {
       _isLoading = false;
       notifyListeners();
+      print('🔑 Sign out process finished');
     }
   }
 } 

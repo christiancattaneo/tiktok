@@ -59,11 +59,21 @@ class _LoginScreenState extends State<LoginScreen> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  Container(
+                    width: 120,
+                    height: 120,
+                    child: Image.asset(
+                      'assets/icons/vibetok_logo.png',
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
                   const Text(
-                    'Welcome to ReelAI',
+                    'VibeTok',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
+                      fontFamily: 'Pacifico',
                     ),
                     textAlign: TextAlign.center,
                   ),

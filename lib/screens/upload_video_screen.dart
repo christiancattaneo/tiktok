@@ -416,41 +416,27 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
             ),
         ],
       ),
-      bottomNavigationBar: BottomAppBar(
+      // Add padding at the bottom to avoid navigation bar
+      bottomNavigationBar: !_isUploading ? Padding(  // Only show if not uploading
+        padding: const EdgeInsets.only(bottom: 90),  // Space for navigation bar
         child: Padding(
-          padding: const EdgeInsets.all(8.0),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
           child: ElevatedButton(
-            onPressed: _isUploading ? null : _uploadVideo,
+            onPressed: _uploadVideo,  // Removed null check since button won't show when uploading
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.all(12),
             ),
-            child: _isUploading
-              ? const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    ),
-                    SizedBox(width: 8),
-                    Text('Uploading...'),
-                  ],
-                )
-              : const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.cloud_upload),
-                    SizedBox(width: 8),
-                    Text('Upload Video'),
-                  ],
-                ),
+            child: const Row(  // Simplified since we only show this when not uploading
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.cloud_upload),
+                SizedBox(width: 8),
+                Text('Upload Video'),
+              ],
+            ),
           ),
         ),
-      ),
+      ) : null,  // Return null when uploading to hide the button
     );
   }
 } 

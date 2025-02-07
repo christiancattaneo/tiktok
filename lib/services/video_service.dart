@@ -9,11 +9,16 @@ import '../models/video.dart';
 import '../models/comment.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+import 'config_service.dart';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final _uuid = const Uuid();
+  int _currentPexelsPage = 1;
+  bool _isLoadingPexels = false;
 
   // Upload video file to Firebase Storage
   Future<Map<String, String>?> uploadVideo(XFile videoFile, String userId) async {
@@ -112,6 +117,7 @@ class VideoService {
         'likes': 0,
         'views': 0,
         'commentCount': 0,
+        'isPexels': false,  // Explicitly mark as user-created
         'createdAt': FieldValue.serverTimestamp(),
       };
       
@@ -138,7 +144,8 @@ class VideoService {
   Stream<List<Video>> getVideoFeed() {
     return _firestore
         .collection('videos')
-        .orderBy('createdAt', descending: true)
+        .orderBy('isPexels', descending: false)  // Show user videos first (isPexels = false or null)
+        .orderBy('createdAt', descending: true)  // Then order by creation date
         .limit(20)
         .snapshots()
         .map((snapshot) {
@@ -147,6 +154,38 @@ class VideoService {
           for (var video in videos) {
             print('Video: ${video.id}, created: ${video.createdAt}, url: ${video.videoUrl}');
           }
+          return videos;
+        });
+  }
+
+  // Get videos from followed users
+  Stream<List<Video>> getFollowingVideoFeed(String userId) {
+    if (userId.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return _firestore
+        .collection('users')
+        .doc(userId)
+        .collection('following')
+        .snapshots()
+        .asyncMap((followingSnapshot) async {
+          final followedUserIds = followingSnapshot.docs.map((doc) => doc.id).toList();
+          
+          if (followedUserIds.isEmpty) {
+            return [];
+          }
+
+          // Get videos from followed users
+          final videoSnapshot = await _firestore
+              .collection('videos')
+              .where('userId', whereIn: followedUserIds)
+              .orderBy('createdAt', descending: true)
+              .limit(20)
+              .get();
+
+          final videos = videoSnapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          print('Following feed loaded ${videos.length} videos');
           return videos;
         });
   }
@@ -492,6 +531,88 @@ class VideoService {
       print('Successfully deleted ${snapshot.docs.length} sample videos');
     } catch (e) {
       print('Error deleting sample videos: $e');
+    }
+  }
+
+  Future<List<Video>> fetchPexelsVideos({String? searchQuery}) async {
+    if (_isLoadingPexels) return [];
+    _isLoadingPexels = true;
+
+    try {
+      final baseUrl = searchQuery?.isNotEmpty == true
+          ? 'https://api.pexels.com/videos/search?query=${Uri.encodeComponent(searchQuery!)}'
+          : 'https://api.pexels.com/videos/popular';
+      
+      print('🎥 Pexels API URL: $baseUrl&per_page=10&page=${_currentPexelsPage}');
+      
+      final response = await http.get(
+        Uri.parse('$baseUrl&per_page=10&page=${_currentPexelsPage}'),
+        headers: {'Authorization': ConfigService.pexelsApiKey},
+      );
+
+      print('🎥 Pexels API Response Status: ${response.statusCode}');
+      
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        print('🎥 Pexels API Response: ${data.toString().substring(0, 200)}...'); // Print first 200 chars
+        
+        final videos = data['videos'] as List;
+        _currentPexelsPage++;
+
+        final List<Video> processedVideos = [];
+        for (var video in videos) {
+          try {
+            // Get the HD video file or fallback to SD
+            final videoFile = video['video_files'].firstWhere(
+              (f) => f['quality'] == 'hd',
+              orElse: () => video['video_files'].first,
+            );
+
+            final videoUrl = videoFile['link'];
+            final userId = 'pexels_${video['user']['id']}';
+            final username = video['user']['name'];
+
+            print('🎥 Processing Pexels video: ${video['url']}');
+
+            // Create video metadata in Firestore
+            final videoDoc = await _firestore.collection('videos').add({
+              'userId': userId,
+              'creatorUsername': username,
+              'videoUrl': videoUrl,
+              'caption': searchQuery?.isNotEmpty == true 
+                  ? 'Pexels video for: $searchQuery'
+                  : video['url'].split('/').last.replaceAll('-', ' '),
+              'thumbnailUrl': video['image'],
+              'hashtags': searchQuery?.isNotEmpty == true 
+                  ? ['pexels', searchQuery]
+                  : ['pexels'],
+              'likes': 0,
+              'views': 0,
+              'commentCount': 0,
+              'createdAt': FieldValue.serverTimestamp(),
+              'isPexels': true,
+            });
+
+            processedVideos.add(Video.fromFirestore(await videoDoc.get()));
+          } catch (e) {
+            print('🎥 Error processing Pexels video: $e');
+            continue;
+          }
+        }
+
+        _isLoadingPexels = false;
+        print('🎥 Successfully processed ${processedVideos.length} Pexels videos');
+        return processedVideos;
+      } else {
+        print('🎥 Pexels API error: ${response.statusCode}');
+        print('🎥 Error response: ${response.body}');
+        _isLoadingPexels = false;
+        return [];
+      }
+    } catch (e) {
+      print('🎥 Error fetching Pexels videos: $e');
+      _isLoadingPexels = false;
+      return [];
     }
   }
 } 

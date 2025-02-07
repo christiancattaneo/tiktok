@@ -170,12 +170,13 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
               }
             }
           },
-          child: VideoPlayerWidget(
-            video: widget.video,
-            autoPlay: widget.autoPlay,
-            shouldInitialize: widget.shouldInitialize,
-            fit: widget.fit,
-            preloadOnly: widget.preloadOnly,
+          child: SizedBox.expand(
+            child: VideoPlayerWidget(
+              videoUrl: widget.video.videoUrl,
+              videoId: widget.video.id,
+              isPaused: !widget.autoPlay,
+              shouldPreload: !widget.shouldInitialize,
+            ),
           ),
         ),
 
@@ -199,7 +200,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
 
         // Video Info
         Positioned(
-          bottom: 16,
+          bottom: 80,
           left: 16,
           right: 60,
           child: Column(
@@ -262,7 +263,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
         // Action Buttons
         Positioned(
           right: 8,
-          bottom: 16,
+          bottom: 80,
           child: Column(
             children: [
               IconButton(
@@ -307,6 +308,49 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
                   fontSize: 14,
                 ),
               ),
+              if (context.read<AuthProvider>().userId == widget.video.userId) ...[
+                const SizedBox(height: 16),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline),
+                  color: Colors.white,
+                  onPressed: () async {
+                    final confirmed = await showDialog<bool>(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Delete Video'),
+                        content: const Text('Are you sure you want to delete this video? This action cannot be undone.'),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, false),
+                            child: const Text('CANCEL'),
+                          ),
+                          TextButton(
+                            onPressed: () => Navigator.pop(context, true),
+                            child: const Text('DELETE'),
+                          ),
+                        ],
+                      ),
+                    );
+
+                    if (confirmed == true) {
+                      try {
+                        await _videoService.deleteVideo(widget.video.id, widget.video.userId);
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Video deleted successfully')),
+                          );
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Error deleting video: $e')),
+                          );
+                        }
+                      }
+                    }
+                  },
+                ),
+              ],
             ],
           ),
         ),

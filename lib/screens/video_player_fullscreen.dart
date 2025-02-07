@@ -56,8 +56,9 @@ class _VideoPlayerFullscreenState extends State<VideoPlayerFullscreen> {
           });
         },
         itemBuilder: (context, index) {
+          final video = widget.videos[index];
           return VideoCard(
-            video: widget.videos[index],
+            video: video,
             autoPlay: index == _currentIndex,
             shouldInitialize: (index - _currentIndex).abs() <= 1,
           );

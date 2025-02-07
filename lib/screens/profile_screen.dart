@@ -330,11 +330,24 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                 decoration: BoxDecoration(
                   color: Colors.black,
                 ),
-                child: VideoPlayerWidget(
-                  video: video,
-                  autoPlay: false,
-                  shouldInitialize: false,
-                  fit: BoxFit.cover,
+                child: ClipRect(
+                  child: OverflowBox(
+                    alignment: Alignment.center,
+                    maxWidth: double.infinity,
+                    maxHeight: double.infinity,
+                    child: FittedBox(
+                      fit: BoxFit.cover,
+                      child: SizedBox(
+                        width: 1,
+                        height: 1.25, // Force 0.8 aspect ratio (1/1.25 = 0.8)
+                        child: VideoPlayerWidget(
+                          videoUrl: video.videoUrl,
+                          videoId: video.id,
+                          isPaused: true,
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
               ),
               Material(
