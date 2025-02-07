@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
 import '../services/user_service.dart';
 import '../models/video.dart';
@@ -44,7 +44,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
   }
 
   Future<void> _checkFollowStatus() async {
-    final currentUserId = context.read<AuthProvider>().userId;
+    final currentUserId = context.read<AppAuthProvider>().userId;
     if (currentUserId != null && currentUserId != widget.userId) {
       final isFollowing = await _userService.isFollowing(currentUserId, widget.userId);
       if (mounted) {
@@ -58,7 +58,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
   Future<void> _toggleFollow() async {
     if (_isLoading) return;
 
-    final currentUserId = context.read<AuthProvider>().userId;
+    final currentUserId = context.read<AppAuthProvider>().userId;
     if (currentUserId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to follow users')),
@@ -107,7 +107,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
 
   @override
   Widget build(BuildContext context) {
-    final currentUserId = context.read<AuthProvider>().userId;
+    final currentUserId = context.read<AppAuthProvider>().userId;
     final isCurrentUser = currentUserId == widget.userId;
 
     return Scaffold(

@@ -5,7 +5,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import '../models/comment.dart';
 import '../models/video.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
 import '../services/config_service.dart';
 import '../screens/user_profile_screen.dart';
@@ -248,8 +248,8 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
     final text = _commentController.text.trim();
     if (text.isEmpty && _selectedGif == null) return;
 
-    final userId = context.read<AuthProvider>().userId;
-    final user = context.read<AuthProvider>().user;
+    final userId = context.read<AppAuthProvider>().userId;
+    final user = context.read<AppAuthProvider>().user;
     
     if (userId == null || user == null) {
       if (mounted) {
@@ -297,7 +297,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   }
 
   Future<void> _deleteComment(Comment comment) async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId != comment.userId) return;
 
     try {
@@ -312,7 +312,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   }
 
   Future<void> _toggleLike(Comment comment) async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to like comments')),
@@ -345,7 +345,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   }
 
   Future<void> _checkLikeStatus(Comment comment) async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId != null) {
       final isLiked = await _videoService.hasUserLikedComment(comment.id, userId);
       if (mounted) {
@@ -426,7 +426,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                       itemCount: comments.length,
                       itemBuilder: (context, index) {
                         final comment = comments[index];
-                        final isAuthor = comment.userId == context.read<AuthProvider>().userId;
+                        final isAuthor = comment.userId == context.read<AppAuthProvider>().userId;
 
                         if (!_likedComments.containsKey(comment.id)) {
                           _checkLikeStatus(comment);

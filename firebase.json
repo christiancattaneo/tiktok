@@ -1,1 +1,68 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"reelai-35b9e","configurations":{"android":"1:578405048133:android:3690f9bc619098d2c6282c","ios":"1:578405048133:ios:c3298e02a7084e7ec6282c","web":"1:578405048133:web:608e34c9d7a162c9c6282c"}}},"android":{"default":{"projectId":"reelai-35b9e","appId":"1:578405048133:android:3690f9bc619098d2c6282c","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"reelai-35b9e","appId":"1:578405048133:ios:c3298e02a7084e7ec6282c","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}}}},"firestore":{"rules":"firestore.rules","indexes":"firestore.indexes.json"},"storage":{"rules":"storage.rules"},"hosting":{"public":"build/web","ignore":["firebase.json","**/.*","**/node_modules/**"],"rewrites":[{"source":"**","destination":"/index.html"}]}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "reelai-35b9e",
+          "configurations": {
+            "android": "1:578405048133:android:3690f9bc619098d2c6282c",
+            "ios": "1:578405048133:ios:c3298e02a7084e7ec6282c",
+            "web": "1:578405048133:web:608e34c9d7a162c9c6282c"
+          }
+        }
+      },
+      "android": {
+        "default": {
+          "projectId": "reelai-35b9e",
+          "appId": "1:578405048133:android:3690f9bc619098d2c6282c",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "reelai-35b9e",
+          "appId": "1:578405048133:ios:c3298e02a7084e7ec6282c",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "storage": {
+    "rules": "storage.rules"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ]
+  },
+  "functions": [
+    {
+      "source": "functions",
+      "codebase": "default",
+      "ignore": [
+        "node_modules",
+        ".git",
+        "firebase-debug.log",
+        "firebase-debug.*.log",
+        "*.local"
+      ],
+      "predeploy": [
+        "npm --prefix \"$RESOURCE_DIR\" run lint"
+      ]
+    }
+  ]
+}

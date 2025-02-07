@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../models/video.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
 import '../screens/user_profile_screen.dart';
 import 'video_player_widget.dart';
@@ -67,7 +67,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
   }
 
   Future<void> _checkLikeStatus() async {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId != null) {
       final isLiked = await _videoService.hasUserLikedVideo(widget.video.id, userId);
       if (mounted) {
@@ -81,7 +81,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
   Future<void> _toggleLike() async {
     if (_isLoading) return;
 
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please sign in to like videos')),
@@ -163,7 +163,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
         GestureDetector(
           onDoubleTap: () async {
             if (!_isLoading) {
-              final userId = context.read<AuthProvider>().userId;
+              final userId = context.read<AppAuthProvider>().userId;
               if (userId != null) {
                 // Toggle like without showing heart animation
                 await _toggleLike();
@@ -308,7 +308,7 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
                   fontSize: 14,
                 ),
               ),
-              if (context.read<AuthProvider>().userId == widget.video.userId) ...[
+              if (context.read<AppAuthProvider>().userId == widget.video.userId) ...[
                 const SizedBox(height: 16),
                 IconButton(
                   icon: const Icon(Icons.delete_outline),

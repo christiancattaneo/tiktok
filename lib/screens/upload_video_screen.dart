@@ -3,10 +3,11 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
+import '../services/trend_service.dart';
 
 class UploadVideoScreen extends StatefulWidget {
   const UploadVideoScreen({super.key});
@@ -17,6 +18,7 @@ class UploadVideoScreen extends StatefulWidget {
 
 class _UploadVideoScreenState extends State<UploadVideoScreen> {
   final _videoService = VideoService();
+  final _trendService = TrendService();
   final _captionController = TextEditingController();
   final _hashtagController = TextEditingController();
   XFile? _videoFile;
@@ -25,6 +27,9 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
   double _uploadProgress = 0.0;
   String _uploadStatus = '';
   List<String> _hashtags = [];
+  List<Map<String, dynamic>> _trendingHashtags = [];
+  Map<String, dynamic> _videoLengthInsights = {};
+  bool _isLoadingInsights = false;
 
   // List of supported video formats with their common variations
   final _supportedFormats = {
@@ -33,6 +38,12 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     'avi': ['avi'],
     'mkv': ['mkv', 'matroska'],
   };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadTrendingHashtags();
+  }
 
   @override
   void dispose() {
@@ -150,6 +161,108 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     }
   }
 
+  Future<void> _loadTrendingHashtags() async {
+    try {
+      setState(() {
+        _isLoadingInsights = true;
+      });
+      
+      final hashtags = await _trendService.getTrendingHashtags();
+      final lengthInsights = await _trendService.getOptimalVideoLength();
+      
+      if (mounted) {
+        setState(() {
+          _trendingHashtags = hashtags;
+          _videoLengthInsights = lengthInsights;
+          _isLoadingInsights = false;
+        });
+      }
+    } catch (e) {
+      print('Error loading insights: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingInsights = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _getPersonalizedHashtags() async {
+    print('🎯 [UploadScreen] Starting _getPersonalizedHashtags');
+    
+    if (_captionController.text.isEmpty) {
+      print('❌ [UploadScreen] Caption is empty, showing error message');
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please add a caption first')),
+      );
+      return;
+    }
+
+    try {
+      print('🎯 [UploadScreen] Setting loading state');
+      setState(() {
+        _isLoadingInsights = true;
+      });
+      
+      print('🎯 [UploadScreen] Calling TrendService.getPersonalizedHashtags with caption: ${_captionController.text}');
+      final suggestions = await _trendService.getPersonalizedHashtags(
+        _captionController.text,
+      );
+      print('🎯 [UploadScreen] Received suggestions: $suggestions');
+      
+      if (mounted) {
+        print('🎯 [UploadScreen] Widget still mounted, updating state and showing dialog');
+        setState(() {
+          _isLoadingInsights = false;
+        });
+        
+        // Show suggestions in a dialog
+        showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            title: const Text('Suggested Hashtags'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                ...suggestions.map((tag) => ListTile(
+                  title: Text('#$tag'),
+                  trailing: IconButton(
+                    icon: const Icon(Icons.add),
+                    onPressed: () {
+                      print('🎯 [UploadScreen] Adding hashtag: $tag');
+                      setState(() {
+                        if (!_hashtags.contains(tag)) {
+                          _hashtags.add(tag);
+                        }
+                      });
+                      Navigator.pop(context);
+                    },
+                  ),
+                )),
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Close'),
+              ),
+            ],
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ [UploadScreen] Error getting personalized hashtags: $e');
+      if (mounted) {
+        setState(() {
+          _isLoadingInsights = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: $e')),
+        );
+      }
+    }
+  }
+
   Future<void> _uploadVideo() async {
     if (_videoFile == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -172,12 +285,12 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
     });
 
     try {
-      final userId = context.read<AuthProvider>().userId;
+      final userId = context.read<AppAuthProvider>().userId;
       if (userId == null) {
         throw Exception('User not logged in');
       }
 
-      final username = context.read<AuthProvider>().user?.username;
+      final username = context.read<AppAuthProvider>().user?.username;
       if (username == null) {
         throw Exception('Username not found');
       }
@@ -321,6 +434,43 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                     ),
                   ),
                 const SizedBox(height: 16),
+                
+                // TrendLens Insights Card
+                if (_videoLengthInsights.isNotEmpty)
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.trending_up),
+                              const SizedBox(width: 8),
+                              Text(
+                                'TrendLens™ Insights',
+                                style: Theme.of(context).textTheme.titleLarge,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'Optimal Video Length: ${_videoLengthInsights['optimalLength'] ?? 'N/A'}',
+                            style: Theme.of(context).textTheme.bodyLarge,
+                          ),
+                          if (_videoLengthInsights['explanation'] != null)
+                            Text(
+                              _videoLengthInsights['explanation'],
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+
+                const SizedBox(height: 16),
+                
+                // Video Details Card
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(16.0),
@@ -362,6 +512,13 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                               icon: const Icon(Icons.add_circle),
                               onPressed: _isUploading ? null : _addHashtag,
                             ),
+                            IconButton(
+                              icon: const Icon(Icons.auto_awesome),
+                              onPressed: _isUploading || _isLoadingInsights
+                                  ? null
+                                  : _getPersonalizedHashtags,
+                              tooltip: 'Get AI suggestions',
+                            ),
                           ],
                         ),
                         const SizedBox(height: 8),
@@ -376,6 +533,41 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                             },
                           )).toList(),
                         ),
+                        
+                        // Trending Hashtags
+                        if (_trendingHashtags.isNotEmpty) ...[
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Trending Hashtags',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 8),
+                          Wrap(
+                            spacing: 8,
+                            children: _trendingHashtags.map((trend) => ActionChip(
+                              label: Text(
+                                '#${trend['tag']}',
+                                style: TextStyle(
+                                  color: trend['score'] > 0.8 
+                                      ? Colors.red 
+                                      : null,
+                                ),
+                              ),
+                              avatar: trend['score'] > 0.8 
+                                  ? const Icon(Icons.local_fire_department, size: 16)
+                                  : null,
+                              onPressed: () {
+                                if (!_hashtags.contains(trend['tag'])) {
+                                  setState(() {
+                                    _hashtags.add(trend['tag']);
+                                  });
+                                }
+                              },
+                            )).toList(),
+                          ),
+                        ],
                       ],
                     ),
                   ),

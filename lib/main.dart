@@ -3,13 +3,14 @@ import 'package:provider/provider.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'firebase_options.dart';
-import 'providers/auth_provider.dart';
+import 'providers/app_auth_provider.dart';
 import 'providers/video_provider.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/feed_screen.dart';
 import 'screens/main_screen.dart';
 import 'app.dart';
 import 'services/config_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -28,10 +29,15 @@ void main() async {
     cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
   );
   
+  // Print Firebase Auth state for debugging
+  FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    print('🔐 Auth State Changed: ${user?.uid ?? 'No user'}');
+  });
+  
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => AuthProvider()),
+        ChangeNotifierProvider(create: (_) => AppAuthProvider()),
         ChangeNotifierProvider(create: (_) => VideoProvider()),
       ],
       child: const MyApp(),
@@ -50,7 +56,7 @@ class MyApp extends StatelessWidget {
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
       ),
-      home: Consumer<AuthProvider>(
+      home: Consumer<AppAuthProvider>(
         builder: (context, authProvider, _) {
           if (authProvider.isLoading) {
             return const Scaffold(

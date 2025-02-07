@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+import '../../providers/app_auth_provider.dart';
 
 class SignupScreen extends StatefulWidget {
   const SignupScreen({super.key});
@@ -27,7 +27,7 @@ class _SignupScreenState extends State<SignupScreen> {
   Future<void> _signup() async {
     if (_formKey.currentState!.validate()) {
       try {
-        await context.read<AuthProvider>().signUp(
+        await context.read<AppAuthProvider>().signUp(
           _emailController.text.trim(),
           _passwordController.text.trim(),
           _usernameController.text.trim(),
@@ -118,10 +118,10 @@ class _SignupScreenState extends State<SignupScreen> {
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: context.watch<AuthProvider>().isLoading
+                  onPressed: context.watch<AppAuthProvider>().isLoading
                       ? null
                       : _signup,
-                  child: context.watch<AuthProvider>().isLoading
+                  child: context.watch<AppAuthProvider>().isLoading
                       ? const CircularProgressIndicator()
                       : const Text('Sign Up'),
                 ),

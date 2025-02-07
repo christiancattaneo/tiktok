@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/user_service.dart';
 import '../models/user.dart' as app_models;
 
@@ -50,7 +50,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
 
       if (image == null) return;
 
-      final userId = context.read<AuthProvider>().userId;
+      final userId = context.read<AppAuthProvider>().userId;
       if (userId == null) return;
 
       final success = await _userService.updateProfilePhoto(userId, image);
@@ -87,7 +87,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         _isLoading = true;
       });
 
-      final userId = context.read<AuthProvider>().userId;
+      final userId = context.read<AppAuthProvider>().userId;
       if (userId == null) return;
 
       final success = await _userService.updateBio(userId, _bioController.text.trim());

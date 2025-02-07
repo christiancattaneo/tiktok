@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../providers/video_provider.dart';
 import '../services/video_service.dart';
 import '../models/video.dart';
@@ -106,7 +106,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
         children: [
           StreamBuilder<List<Video>>(
             stream: _isFollowingFeed 
-              ? _videoService.getFollowingVideoFeed(context.read<AuthProvider>().userId ?? '')
+              ? _videoService.getFollowingVideoFeed(context.read<AppAuthProvider>().userId ?? '')
               : _videoService.getVideoFeed(),
             builder: (context, snapshot) {
               if (snapshot.hasError) {
@@ -384,7 +384,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
     
     // Now proceed with sign out
     if (mounted) {
-      context.read<AuthProvider>().signOut();
+      context.read<AppAuthProvider>().signOut();
     }
   }
 

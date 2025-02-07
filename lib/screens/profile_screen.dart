@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import '../providers/auth_provider.dart';
+import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
 import '../services/user_service.dart';
 import '../models/video.dart';
@@ -53,7 +53,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
       if (image == null) return;
 
-      final userId = context.read<AuthProvider>().userId;
+      final userId = context.read<AppAuthProvider>().userId;
       if (userId == null) return;
 
       final success = await _userService.updateProfilePhoto(userId, image);
@@ -100,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
   @override
   Widget build(BuildContext context) {
-    final userId = context.read<AuthProvider>().userId;
+    final userId = context.read<AppAuthProvider>().userId;
     if (userId == null) return const Center(child: Text('Not logged in'));
 
     return StreamBuilder<app_models.User?>(
@@ -134,7 +134,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               IconButton(
                 icon: const Icon(Icons.logout),
                 onPressed: () {
-                  context.read<AuthProvider>().signOut();
+                  context.read<AppAuthProvider>().signOut();
                 },
               ),
             ],
