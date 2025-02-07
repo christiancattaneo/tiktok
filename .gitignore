@@ -109,6 +109,9 @@ DerivedData/
 !default.mode2v3
 *.perspectivev3
 !default.perspectivev3
+**/ios/XCBuildData/
+**/XCBuildData/
+**/ios/**/XCBuildData/
 
 # iOS/Pods
 ios/Pods/
@@ -117,3 +120,8 @@ ios/.symlinks/
 ios/Flutter/Flutter.podspec
 ios/Flutter/flutter_export_environment.sh
 ios/Flutter/Generated.xcconfig
+
+# Functions build output
+functions/build/
+functions/lib/
+functions/node_modules/
