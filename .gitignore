@@ -18,10 +18,9 @@ migrate_working_dir/
 *.iws
 .idea/
 
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
+# VS Code related
+.vscode/
+*.code-workspace
 
 # Flutter/Dart/Pub related
 **/doc/api/
@@ -44,13 +43,16 @@ app.*.map.json
 /android/app/profile
 /android/app/release
 
-# Firebase config files
+# Firebase config files and cache
 google-services.json
 GoogleService-Info.plist
 firebase_options.dart
 firebase_app_id_file.json
 lib/config/firebase_config.dart
 web/firebase-config.js
+.firebase/
+.firebaserc
+firebase-debug.log
 
 # Environment files
 .env
@@ -69,8 +71,6 @@ env.g.dart
 local.properties
 keystore.properties
 key.properties
-
-# Generated files that might contain secrets
 
 # Credentials
 *.keystore
@@ -109,3 +109,11 @@ DerivedData/
 !default.mode2v3
 *.perspectivev3
 !default.perspectivev3
+
+# iOS/Pods
+ios/Pods/
+ios/Podfile.lock
+ios/.symlinks/
+ios/Flutter/Flutter.podspec
+ios/Flutter/flutter_export_environment.sh
+ios/Flutter/Generated.xcconfig
