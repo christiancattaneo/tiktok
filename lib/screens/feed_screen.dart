@@ -19,8 +19,10 @@ class FeedScreen extends StatefulWidget {
 
 class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, RouteAware {
   final _videoService = VideoService();
-  late PageController _pageController;
-  int _currentPage = 0;
+  late PageController _forYouPageController;
+  late PageController _followingPageController;
+  int _currentForYouPage = 0;
+  int _currentFollowingPage = 0;
   bool _isLoading = true;
   bool _isPaused = false;
   String _searchQuery = '';
@@ -30,14 +32,17 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
   bool _isFollowingFeed = false;
   final List<Map<String, String>> _recentSearches = [];
   static const int _maxRecentSearches = 5;
+  DateTime? _lastVideoTimestamp;  // Track the timestamp of the last video
 
   static RouteObserver<ModalRoute<void>> get routeObserver => _routeObserver;
 
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(initialPage: 0, viewportFraction: 1.0);
+    _forYouPageController = PageController(initialPage: 0, viewportFraction: 1.0);
+    _followingPageController = PageController(initialPage: 0, viewportFraction: 1.0);
     WidgetsBinding.instance.addObserver(this);
+    _initializeFeed();
   }
 
   @override
@@ -157,23 +162,39 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
                 );
               }
 
+              // Update last video timestamp for pagination
+              if (filteredVideos.isNotEmpty && !_isFollowingFeed) {
+                _lastVideoTimestamp = filteredVideos.last.createdAt;
+              }
+
               return PageView.builder(
                 scrollDirection: Axis.vertical,
-                controller: _pageController,
+                controller: _isFollowingFeed ? _followingPageController : _forYouPageController,
                 onPageChanged: (index) {
                   setState(() {
-                    _currentPage = index;
+                    if (_isFollowingFeed) {
+                      _currentFollowingPage = index;
+                    } else {
+                      _currentForYouPage = index;
+                    }
                   });
                   _updatePreloadWidgets(index, filteredVideos);
                   
                   // Increment view count when video is viewed
                   _videoService.incrementViews(filteredVideos[index].id);
+
+                  // Load more videos when we're near the end
+                  if (!_isFollowingFeed && index >= filteredVideos.length - 3) {
+                    _loadMoreVideos();
+                  }
                 },
                 itemCount: filteredVideos.length,
                 itemBuilder: (context, index) {
                   final video = filteredVideos[index];
-                  final isCurrentVideo = index == _currentPage;
-                  final shouldInitialize = (index - _currentPage).abs() <= 1;
+                  final isCurrentVideo = _isFollowingFeed 
+                    ? index == _currentFollowingPage 
+                    : index == _currentForYouPage;
+                  final shouldInitialize = (index - (_isFollowingFeed ? _currentFollowingPage : _currentForYouPage)).abs() <= 1;
                   
                   return VideoCard(
                     key: ValueKey('${video.id}_${video.likes}'),
@@ -205,62 +226,64 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
               ),
               child: Column(
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isFollowingFeed = false;
-                          });
-                        },
-                        child: Text(
-                          'For You',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: !_isFollowingFeed ? FontWeight.bold : FontWeight.normal,
+                  if (_searchQuery.isEmpty) ...[  // Only show toggle when not searching
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _isFollowingFeed = false;
+                            });
+                          },
+                          child: Text(
+                            'For You',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: !_isFollowingFeed ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ),
-                      ),
-                      const SizedBox(width: 20),
-                      TextButton(
-                        onPressed: () {
-                          setState(() {
-                            _isFollowingFeed = true;
-                          });
-                        },
-                        child: Text(
-                          'Following',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 16,
-                            fontWeight: _isFollowingFeed ? FontWeight.bold : FontWeight.normal,
+                        const SizedBox(width: 20),
+                        TextButton(
+                          onPressed: () {
+                            setState(() {
+                              _isFollowingFeed = true;
+                            });
+                          },
+                          child: Text(
+                            'Following',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: _isFollowingFeed ? FontWeight.bold : FontWeight.normal,
+                            ),
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  // Indicator line
-                  Stack(
-                    alignment: Alignment.center,
-                    children: [
-                      Container(
-                        width: 120,
-                        height: 2,
-                        color: Colors.white.withOpacity(0.2),
-                      ),
-                      AnimatedPositioned(
-                        duration: const Duration(milliseconds: 200),
-                        left: _isFollowingFeed ? 60 : 0,
-                        child: Container(
-                          width: 60,
+                      ],
+                    ),
+                    // Indicator line
+                    Stack(
+                      alignment: Alignment.center,
+                      children: [
+                        Container(
+                          width: 120,
                           height: 2,
-                          color: Colors.white,
+                          color: Colors.white.withOpacity(0.2),
                         ),
-                      ),
-                    ],
-                  ),
+                        AnimatedPositioned(
+                          duration: const Duration(milliseconds: 200),
+                          left: _isFollowingFeed ? 60 : 0,
+                          child: Container(
+                            width: 60,
+                            height: 2,
+                            color: Colors.white,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -343,14 +366,17 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
     try {
       print('🎥 Loading more videos with search query: $_searchQuery');
       final newVideos = await _videoService.fetchPexelsVideos(
-        searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null
+        searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
+        lastVideoTimestamp: _lastVideoTimestamp,  // Pass the timestamp
       );
       print('🎥 Loaded ${newVideos.length} new videos');
       if (newVideos.isNotEmpty) {
         print('🎥 First video caption: ${newVideos.first.caption}');
         print('🎥 First video hashtags: ${newVideos.first.hashtags}');
       }
-      if (mounted && newVideos.isNotEmpty) {
+      
+      // Only show snackbar during search
+      if (mounted && newVideos.isNotEmpty && _searchQuery.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Loaded ${newVideos.length} new videos')),
         );
@@ -362,6 +388,42 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
           SnackBar(content: Text('Error loading videos: $e')),
         );
       }
+    }
+  }
+
+  Future<void> _initializeFeed() async {
+    setState(() {
+      _isLoading = true;
+    });
+    
+    try {
+      print('🎥 Initializing feed...');
+      // First check if we have any videos
+      final snapshot = await _videoService.checkForVideos();
+      if (!snapshot) {
+        print('🎥 No videos found, loading initial Pexels videos');
+        await _loadInitialPexelsVideos();
+      } else {
+        print('🎥 Existing videos found');
+      }
+    } catch (e) {
+      print('🎥 Error initializing feed: $e');
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _loadInitialPexelsVideos() async {
+    try {
+      print('🎥 Loading initial Pexels videos for empty feed');
+      final videos = await _videoService.fetchPexelsVideos();  // No search query = popular videos
+      print('🎥 Loaded ${videos.length} initial Pexels videos');
+    } catch (e) {
+      print('🎥 Error loading initial Pexels videos: $e');
     }
   }
 
@@ -525,8 +587,9 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
     MainScreen.tabNotifier.removeListener(_handleTabChange);
     _routeObserver.unsubscribe(this);
     WidgetsBinding.instance.removeObserver(this);
-    print('📱 Disposing page controller');
-    _pageController.dispose();
+    print('📱 Disposing page controllers');
+    _forYouPageController.dispose();
+    _followingPageController.dispose();
     super.dispose();
     print('📱 FeedScreen dispose completed');
   }

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:async';
+import 'package:video_player/video_player.dart';
 import '../models/video.dart';
 import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';

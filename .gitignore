@@ -1,3 +1,6 @@
+#potential keys
+config_service.dart
+
 # Miscellaneous
 *.class
 *.log
@@ -125,3 +128,5 @@ ios/Flutter/Generated.xcconfig
 functions/build/
 functions/lib/
 functions/node_modules/
+
+reelai-35b9e-firebase-adminsdk-fbsvc-3b7f9222fd.json

@@ -34,9 +34,11 @@ exports.getTrendingHashtags = (0, https_1.onCall)({ maxInstances: 10 }, async (_
             tag,
             count: stats.count,
             engagement: stats.engagement,
+            score: 0.5, // Default score for UI
         }))
             .sort((a, b) => b.engagement - a.engagement)
             .slice(0, 10);
+        console.log("Returning trends:", trends);
         return { hashtags: trends };
     }
     catch (error) {

@@ -2,35 +2,56 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/app_auth_provider.dart';
 import 'screens/auth/login_screen.dart';
-import 'screens/feed_screen.dart';
+import 'screens/main_screen.dart';
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
   @override
   Widget build(BuildContext context) {
-    return ChangeNotifierProvider(
-      create: (_) => AppAuthProvider(),
-      child: MaterialApp(
-        title: 'ReelAI',
-        theme: ThemeData(
-          primarySwatch: Colors.blue,
-          brightness: Brightness.dark,
-          scaffoldBackgroundColor: Colors.black,
-          appBarTheme: const AppBarTheme(
-            backgroundColor: Colors.black,
-            elevation: 0,
-          ),
-        ),
-        initialRoute: '/',
-        routes: {
-          '/': (context) => Consumer<AppAuthProvider>(
-            builder: (context, authProvider, _) {
-              return authProvider.isAuthenticated
-                  ? const FeedScreen()
-                  : const LoginScreen();
-            },
-          ),
+    return MaterialApp(
+      title: 'VibeTok',
+      theme: ThemeData(
+        colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
+        useMaterial3: true,
+      ),
+      home: Consumer<AppAuthProvider>(
+        builder: (context, authProvider, _) {
+          if (authProvider.isLoading) {
+            return const Scaffold(
+              body: Center(
+                child: CircularProgressIndicator(),
+              ),
+            );
+          }
+          
+          // Show error if there is one
+          if (authProvider.error != null) {
+            return Scaffold(
+              body: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      authProvider.error!,
+                      style: const TextStyle(color: Colors.red),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        // This will trigger a reload of the auth state
+                        authProvider.signOut();
+                      },
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+          
+          return authProvider.isAuthenticated
+              ? const MainScreen()
+              : const LoginScreen();
         },
       ),
     );

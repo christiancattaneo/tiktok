@@ -1,0 +1,62 @@
+{"users": [
+{
+  "localId": "4wr4IuXJ0kaC3bG3sg2GjEFGu612",
+  "email": "chiefhypeofficer@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "g5kPgNcMouv66y72jtucCdQQTMcNHJr1XJi9TqlQqyJwiy7zxLtDmw/oTcPgPaNzGaRtT+2y8fCdtW+Sz8Gq/w==",
+  "salt": "cA1H0E0ZWfXqig==",
+  "lastSignedInAt": "1738989801695",
+  "createdAt": "1738791950721",
+  "providerUserInfo": []
+},
+{
+  "localId": "5ux2GGvUCCQfu1TkvdH2bRIDdvV2",
+  "email": "ash@gauntletai.com",
+  "emailVerified": false,
+  "passwordHash": "yduwRjXKY7IoH0aG3AqyuNqpcTpGmrecd6wBSFtm2BYMOGrR4gU5g1gz/PTF57mqQsMagqxXYpSHaxhsGxsTgg==",
+  "salt": "CTaHmF7AwWrtfg==",
+  "lastSignedInAt": "1738880804128",
+  "createdAt": "1738880804128",
+  "providerUserInfo": []
+},
+{
+  "localId": "IxbiJtqG6Eh6eGVRYRbiL37bZEp2",
+  "email": "vrillionaires@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "tAGga1hlBf/kVIxBFOoyT+Sl/aGxj4GDsYONDTYwIkm6cbcnzs3DhwizFYeuO72mNEtPihlN1a3+nsjZpRoSRg==",
+  "salt": "aEgceOqLWfUu7g==",
+  "lastSignedInAt": "1739169862731",
+  "createdAt": "1738780145924",
+  "providerUserInfo": []
+},
+{
+  "localId": "jqjd0GWqyKasysVfLq5gKdBVGU42",
+  "email": "christiandcattaneo@gmail.com",
+  "emailVerified": false,
+  "passwordHash": "Zt6qTrRSb9U8Oyy5o4K+PW6HHm0mRTnsNXWi2oK4cJ/fR1PccQjMxerv/JwQ9UGq7BlYsGKEU07+avsbfvwowQ==",
+  "salt": "oVRtUU1SIh+SOA==",
+  "lastSignedInAt": "1738897209628",
+  "createdAt": "1738626921806",
+  "providerUserInfo": []
+},
+{
+  "localId": "oViQBiXZAKgiPWdlmVUUhYcrRop2",
+  "email": "christian.cattaneo@gauntletai.com",
+  "emailVerified": false,
+  "passwordHash": "H3uOy3lhoWmHEOVYTuQWc5DEJ8jGq0axwHUaCSuqoKM78GOlfyxx/KOq8/8AjHKOE4tBGpaG2RFzJpLzTu6x+Q==",
+  "salt": "v9GAMkOnZQBHoA==",
+  "lastSignedInAt": "1738897889058",
+  "createdAt": "1738611833357",
+  "providerUserInfo": []
+},
+{
+  "localId": "test-user",
+  "email": "test@example.com",
+  "emailVerified": true,
+  "passwordHash": "qgVC3tqxLRcuztr+7LQcSWGJ3cyA0b7kyfYYRKaZkAVs5Yxo4+fuKoAAA0af5XxVQEbt2effJqXkd878WuUUjQ==",
+  "salt": "X0+qATo+CjDtzg==",
+  "lastSignedInAt": "1739062149235",
+  "createdAt": "1739054590233",
+  "disabled": false,
+  "providerUserInfo": []
+}]}

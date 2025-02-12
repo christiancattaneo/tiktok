@@ -10,6 +10,7 @@ import '../services/video_service.dart';
 import '../services/config_service.dart';
 import '../screens/user_profile_screen.dart';
 import 'package:visibility_detector/visibility_detector.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 // Custom cache manager for GIFs
 class GifCacheManager extends CacheManager {
@@ -123,6 +124,9 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   final _preloadedGifs = <String>{};
   static const _preloadDistance = 3;
 
+  // Add GIPHY API key getter
+  String get _giphyApiKey => dotenv.env['GIPHY_API_KEY'] ?? '';
+
   @override
   void initState() {
     super.initState();
@@ -224,7 +228,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
   Future<void> _pickGif() async {
     final gif = await GiphyPicker.pickGif(
       context: context,
-      apiKey: ConfigService.giphyApiKey,
+      apiKey: _giphyApiKey,
     );
     
     if (gif != null && mounted) {

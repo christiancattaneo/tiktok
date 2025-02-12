@@ -196,6 +196,8 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
               maxLines: 3,
               maxLength: 150,
               textCapitalization: TextCapitalization.sentences,
+              textInputAction: TextInputAction.done,
+              onSubmitted: (_) => FocusScope.of(context).unfocus(),
             ),
           ],
         ),

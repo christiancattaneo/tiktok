@@ -13,6 +13,8 @@ class Video {
   final int views;
   final int? commentCount;
   final DateTime? createdAt;
+  final bool isPexels;
+  final bool isSearchGenerated;
 
   Video({
     required this.id,
@@ -27,6 +29,8 @@ class Video {
     required this.views,
     this.commentCount,
     this.createdAt,
+    this.isPexels = false,
+    this.isSearchGenerated = false,
   });
 
   factory Video.fromFirestore(DocumentSnapshot doc) {
@@ -44,6 +48,8 @@ class Video {
       views: data['views'] ?? 0,
       commentCount: data['commentCount'],
       createdAt: (data['createdAt'] as Timestamp?)?.toDate(),
+      isPexels: data['isPexels'] ?? false,
+      isSearchGenerated: data['isSearchGenerated'] ?? false,
     );
   }
 
@@ -60,6 +66,8 @@ class Video {
       'views': views,
       'commentCount': commentCount,
       'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : null,
+      'isPexels': isPexels,
+      'isSearchGenerated': isSearchGenerated,
     };
   }
 } 
