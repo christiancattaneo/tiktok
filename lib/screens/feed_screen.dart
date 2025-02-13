@@ -9,6 +9,7 @@ import '../widgets/video_player_widget.dart';
 import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'main_screen.dart';
+import '../utils/video_cache_manager.dart';
 
 class FeedScreen extends StatefulWidget {
   const FeedScreen({super.key});
@@ -33,6 +34,9 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
   final List<Map<String, String>> _recentSearches = [];
   static const int _maxRecentSearches = 5;
   DateTime? _lastVideoTimestamp;  // Track the timestamp of the last video
+  final _searchController = TextEditingController();
+  bool _isSearchMode = false;
+  final FocusNode _searchFocusNode = FocusNode();
 
   static RouteObserver<ModalRoute<void>> get routeObserver => _routeObserver;
 
@@ -184,7 +188,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
                   _videoService.incrementViews(filteredVideos[index].id);
 
                   // Load more videos when we're near the end
-                  if (!_isFollowingFeed && index >= filteredVideos.length - 3) {
+                  if (!_isFollowingFeed && index >= filteredVideos.length - 5) {
                     _loadMoreVideos();
                   }
                 },
@@ -194,39 +198,107 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
                   final isCurrentVideo = _isFollowingFeed 
                     ? index == _currentFollowingPage 
                     : index == _currentForYouPage;
-                  final shouldInitialize = (index - (_isFollowingFeed ? _currentFollowingPage : _currentForYouPage)).abs() <= 1;
+                  final shouldInitialize = index == 0 || (index - (_isFollowingFeed ? _currentFollowingPage : _currentForYouPage)).abs() <= 1;
                   
                   return VideoCard(
                     key: ValueKey('${video.id}_${video.likes}'),
                     video: video,
                     autoPlay: isCurrentVideo && !_isPaused,
                     shouldInitialize: shouldInitialize,
+                    hideControls: _isSearchMode,
                   );
                 },
               );
             },
           ),
           
-          // Top Bar with Tabs
-          Positioned(
-            top: 0,
-            left: 0,
-            right: 0,
-            child: Container(
-              padding: const EdgeInsets.only(top: 100, bottom: 8),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Colors.black.withOpacity(0.7),
-                    Colors.transparent,
-                  ],
-                ),
+          // Top Overlay (Search and UI)
+          Container(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Colors.black.withOpacity(0.7),
+                  Colors.transparent,
+                ],
+                stops: const [0.0, 0.8],
               ),
+            ),
+            child: SafeArea(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 children: [
-                  if (_searchQuery.isEmpty) ...[  // Only show toggle when not searching
+                  // Search Bar and Top Actions
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    child: Row(
+                      children: [
+                        if (!_isSearchMode) ...[
+                          // VibeTok Title
+                          const Text(
+                            'VibeTok',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 24,
+                              fontWeight: FontWeight.bold,
+                              fontFamily: 'Pacifico',
+                            ),
+                          ),
+                          const Spacer(),
+                          // Search Button
+                          IconButton(
+                            icon: const Icon(Icons.search, color: Colors.white),
+                            onPressed: _toggleSearchMode,
+                          ),
+                          IconButton(
+                            icon: const Icon(Icons.logout, color: Colors.white),
+                            onPressed: _handleSignOut,
+                          ),
+                        ] else ...[
+                          // Back Button
+                          IconButton(
+                            icon: const Icon(Icons.arrow_back, color: Colors.white),
+                            onPressed: _toggleSearchMode,
+                          ),
+                          // Search Input
+                          Expanded(
+                            child: TextField(
+                              controller: _searchController,
+                              focusNode: _searchFocusNode,
+                              style: const TextStyle(color: Colors.white),
+                              decoration: InputDecoration(
+                                hintText: 'Search videos...',
+                                hintStyle: TextStyle(color: Colors.white.withOpacity(0.5)),
+                                border: InputBorder.none,
+                                enabledBorder: UnderlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+                                ),
+                                focusedBorder: const UnderlineInputBorder(
+                                  borderSide: BorderSide(color: Colors.white),
+                                ),
+                              ),
+                              onChanged: _handleSearch,
+                              textInputAction: TextInputAction.search,
+                              onSubmitted: _handleSearch,
+                            ),
+                          ),
+                          // Clear Button (only show when there's text)
+                          if (_searchController.text.isNotEmpty)
+                            IconButton(
+                              icon: const Icon(Icons.close, color: Colors.white),
+                              onPressed: () {
+                                _searchController.clear();
+                                _handleSearch('');
+                              },
+                            ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  
+                  // For You / Following Tabs (only show when not searching)
+                  if (!_isSearchMode) ...[
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
@@ -289,86 +361,108 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
             ),
           ),
           
-          // Search and Logout buttons
-          Positioned(
-            top: 65,
-            right: 8,
-            child: Row(
-              children: [
-                if (_searchQuery.isNotEmpty)
-                  IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    onPressed: () {
-                      setState(() {
-                        _searchQuery = '';
-                      });
-                    },
+          // Loading indicator at the bottom
+          if (_isLoading)
+            Positioned(
+              bottom: 20,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.7),
+                    borderRadius: BorderRadius.circular(20),
                   ),
-                IconButton(
-                  icon: const Icon(Icons.search, color: Colors.white),
-                  onPressed: _showSearchDialog,
+                  child: const Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Text(
+                        'Loading more videos...',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ],
+                  ),
                 ),
-                IconButton(
-                  icon: const Icon(Icons.logout, color: Colors.white),
-                  onPressed: _handleSignOut,
-                ),
-              ],
-            ),
-          ),
-          
-          // VibeTok title
-          Positioned(
-            top: 65,
-            left: 16,
-            child: Text(
-              'VibeTok',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                fontFamily: 'Pacifico',
               ),
             ),
-          ),
         ],
       ),
     );
   }
 
   void _updatePreloadWidgets(int currentIndex, List<Video> videos) {
+    // Clear old preload widgets
     _preloadWidgets.clear();
+    
+    // Preload next videos
     for (var i = 1; i <= _preloadDistance; i++) {
       final preloadIndex = currentIndex + i;
       if (preloadIndex < videos.length) {
+        final video = videos[preloadIndex];
+        print('🎥 Preloading video: ${video.id}');
+        
+        // Add to preload widgets list
         _preloadWidgets.add(
           Offstage(
             offstage: true,
             child: VideoPlayerWidget(
-              key: ValueKey('preload_${videos[preloadIndex].id}'),
-              videoUrl: videos[preloadIndex].videoUrl,
-              videoId: videos[preloadIndex].id,
+              key: ValueKey('preload_${video.id}'),
+              videoUrl: video.videoUrl,
+              videoId: video.id,
               isPaused: true,
               shouldPreload: true,
             ),
           ),
         );
+        
+        // Start caching the video
+        VideoCacheManager().getSingleFile(video.videoUrl).then((file) {
+          print('🎥 Successfully preloaded video: ${video.id}');
+        }).catchError((e) {
+          print('🎥 Error preloading video ${video.id}: $e');
+        });
       }
     }
+    
     if (mounted) setState(() {});
 
     // Load more videos when we're near the end
-    if (currentIndex >= videos.length - 3) {
+    if (currentIndex >= videos.length - 5) {
       _loadMoreVideos();
     }
   }
 
   Future<void> _loadMoreVideos() async {
+    if (_isLoading) return;  // Prevent multiple simultaneous loads
+    
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       print('🎥 Loading more videos with search query: $_searchQuery');
       final newVideos = await _videoService.fetchPexelsVideos(
         searchQuery: _searchQuery.isNotEmpty ? _searchQuery : null,
-        lastVideoTimestamp: _lastVideoTimestamp,  // Pass the timestamp
+        lastVideoTimestamp: _lastVideoTimestamp,
       );
+      
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _lastVideoTimestamp = newVideos.isNotEmpty ? newVideos.last.createdAt : _lastVideoTimestamp;
+        });
+      }
+
       print('🎥 Loaded ${newVideos.length} new videos');
       if (newVideos.isNotEmpty) {
         print('🎥 First video caption: ${newVideos.first.caption}');
@@ -378,12 +472,18 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
       // Only show snackbar during search
       if (mounted && newVideos.isNotEmpty && _searchQuery.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Loaded ${newVideos.length} new videos')),
+          SnackBar(
+            content: Text('Loaded ${newVideos.length} new videos'),
+            duration: const Duration(seconds: 2),
+          ),
         );
       }
     } catch (e) {
       print('🎥 Error loading more videos: $e');
       if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error loading videos: $e')),
         );
@@ -470,114 +570,27 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
     });
   }
 
-  Future<void> _showSearchDialog() async {
-    final TextEditingController searchController = TextEditingController();
-    
-    final result = await showDialog<Map<String, String>>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Search'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: searchController,
-              autofocus: true,
-              decoration: const InputDecoration(
-                hintText: 'Search videos or creators...',
-                prefixIcon: Icon(Icons.search),
-              ),
-              onSubmitted: (value) => Navigator.pop(context, {'query': value, 'type': 'videos'}),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.video_library),
-                  label: const Text('Videos'),
-                  onPressed: () => Navigator.pop(context, {'query': searchController.text, 'type': 'videos'}),
-                ),
-                const SizedBox(width: 8),
-                TextButton.icon(
-                  icon: const Icon(Icons.person),
-                  label: const Text('Creators'),
-                  onPressed: () => Navigator.pop(context, {'query': searchController.text, 'type': 'creators'}),
-                ),
-              ],
-            ),
-            if (_recentSearches.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              const Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Recent Searches',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              ...List.generate(_recentSearches.length, (index) {
-                final search = _recentSearches[index];
-                final isCreator = search['type'] == 'creators';
-                return ListTile(
-                  leading: Icon(
-                    isCreator ? Icons.person : Icons.video_library,
-                    size: 20,
-                  ),
-                  title: Text(search['query']!),
-                  subtitle: Text(isCreator ? 'Creator' : 'Video'),
-                  trailing: IconButton(
-                    icon: const Icon(Icons.close, size: 16),
-                    onPressed: () {
-                      setState(() {
-                        _recentSearches.removeAt(index);
-                      });
-                      Navigator.pop(context);
-                      _showSearchDialog(); // Reopen dialog to show updated list
-                    },
-                  ),
-                  onTap: () => Navigator.pop(context, search),
-                  dense: true,
-                );
-              }),
-            ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('CANCEL'),
-          ),
-        ],
-      ),
-    );
-
-    if (result != null && result['query']?.isNotEmpty == true) {
-      // Add to recent searches
-      _addToRecentSearches(result['query']!, result['type'] ?? 'videos');
-      
-      setState(() {
-        _searchQuery = result['query']!;
-      });
-      
-      // Show loading indicator
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Searching...')),
-        );
-      }
-
-      // Immediately load new videos when search term changes
-      if (result['type'] == 'creators') {
-        print('🔍 Searching for creator: ${result['query']}');
-        // Creator search is handled by the video stream filter
+  void _toggleSearchMode() {
+    setState(() {
+      _isSearchMode = !_isSearchMode;
+      if (_isSearchMode) {
+        _searchFocusNode.requestFocus();
       } else {
-        print('🔍 Searching for videos: ${result['query']}');
-        await _loadMoreVideos();
+        _searchFocusNode.unfocus();
+        _searchQuery = '';
+        _searchController.clear();
       }
+    });
+  }
+
+  void _handleSearch(String query) {
+    setState(() {
+      _searchQuery = query;
+    });
+    
+    if (query.isNotEmpty) {
+      _addToRecentSearches(query, 'videos');
+      _loadMoreVideos();
     }
   }
 
@@ -590,6 +603,13 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
     print('📱 Disposing page controllers');
     _forYouPageController.dispose();
     _followingPageController.dispose();
+    
+    // Clean up video cache when disposing
+    VideoCacheManager().cleanupCache();
+    
+    _searchController.dispose();
+    _searchFocusNode.dispose();
+    
     super.dispose();
     print('📱 FeedScreen dispose completed');
   }

@@ -319,7 +319,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
     final userId = context.read<AppAuthProvider>().userId;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to like comments')),
+        const SnackBar(content: Text('Please sign in to pin comments')),
       );
       return;
     }
@@ -501,7 +501,7 @@ class _CommentsSheetState extends State<CommentsSheet> with SingleTickerProvider
                                                       ),
                                                       const SizedBox(width: 4),
                                                       Text(
-                                                        'Liked by creator',
+                                                        'Pinned by creator',
                                                         style: TextStyle(
                                                           fontSize: 12,
                                                           color: Theme.of(context).primaryColor,

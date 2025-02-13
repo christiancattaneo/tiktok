@@ -209,7 +209,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
                 controller: _tabController,
                 tabs: const [
                   Tab(text: 'Videos'),
-                  Tab(text: 'Liked'),
+                  Tab(text: 'Pinned'),
                 ],
               ),
 
@@ -251,7 +251,7 @@ class _UserProfileScreenState extends State<UserProfileScreen> with SingleTicker
                         }
                         final videos = snapshot.data!;
                         if (videos.isEmpty) {
-                          return const Center(child: Text('No liked videos'));
+                          return const Center(child: Text('No pinned videos'));
                         }
                         return SingleChildScrollView(
                           physics: const AlwaysScrollableScrollPhysics(),

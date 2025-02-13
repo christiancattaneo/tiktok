@@ -152,29 +152,41 @@ class VideoService {
     print('🎥 Getting video feed...');
     return _firestore
         .collection('videos')
+        .where('isPexels', isEqualTo: false)  // Get user videos first
         .orderBy('createdAt', descending: true)
-        .limit(20)
         .snapshots()
         .asyncMap((snapshot) async {
-          final videos = snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
-          print('🎥 Feed loaded ${videos.length} videos');
+          final userVideos = snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          print('🎥 Feed loaded ${userVideos.length} user videos');
           
-          // If we have fewer than 10 videos, fetch popular Pexels videos
-          if (videos.length < 10) {
-            print('🎥 Fetching popular Pexels videos to fill feed');
+          // Get Pexels videos separately
+          final pexelsSnapshot = await _firestore
+              .collection('videos')
+              .where('isPexels', isEqualTo: true)
+              .orderBy('createdAt', descending: true)
+              .get();
+          
+          final pexelsVideos = pexelsSnapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          print('🎥 Feed loaded ${pexelsVideos.length} Pexels videos');
+          
+          // If we have fewer than 10 videos total, fetch more Pexels videos
+          if (userVideos.length + pexelsVideos.length < 10) {
+            print('🎥 Fetching more Pexels videos to fill feed');
             try {
-              final pexelsVideos = await fetchPexelsVideos();
-              if (pexelsVideos.isNotEmpty) {
-                videos.addAll(pexelsVideos);
-                print('🎥 Added ${pexelsVideos.length} Pexels videos to feed');
+              final newPexelsVideos = await fetchPexelsVideos();
+              if (newPexelsVideos.isNotEmpty) {
+                pexelsVideos.addAll(newPexelsVideos);
+                print('🎥 Added ${newPexelsVideos.length} new Pexels videos to feed');
               }
             } catch (e) {
               print('🎥 Error fetching Pexels videos: $e');
             }
           }
           
-          print('🎥 Returning ${videos.length} total videos');
-          return videos;
+          // Combine user videos first, then Pexels videos
+          final allVideos = [...userVideos, ...pexelsVideos];
+          print('🎥 Returning ${allVideos.length} total videos');
+          return allVideos;
         });
   }
 

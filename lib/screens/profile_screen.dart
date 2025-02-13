@@ -25,6 +25,8 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   final _imagePicker = ImagePicker();
   late TabController _tabController;
   bool _isLoading = false;
+  // Track pinned state for videos
+  final Map<String, bool> _pinnedStates = {};
 
   @override
   void initState() {
@@ -143,7 +145,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
             children: [
               // Profile Header
               Padding(
-                padding: const EdgeInsets.all(16.0),
+                padding: const EdgeInsets.fromLTRB(16.0, 16.0, 16.0, 0),
                 child: Column(
                   children: [
                     Stack(
@@ -228,7 +230,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
                       controller: _tabController,
                       tabs: const [
                         Tab(text: 'Videos'),
-                        Tab(text: 'Liked'),
+                        Tab(text: 'Pinned'),
                       ],
                     ),
                   ],
@@ -278,7 +280,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
 
                         final videos = snapshot.data!;
                         if (videos.isEmpty) {
-                          return const Center(child: Text('No liked videos'));
+                          return const Center(child: Text('No pinned videos'));
                         }
 
                         return SingleChildScrollView(
@@ -298,6 +300,13 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   }
 
   Widget _buildVideoGrid(List<Video> videos) {
+    // Initialize all videos as pinned in the Pinned tab
+    if (_tabController.index == 1) {
+      for (var video in videos) {
+        _pinnedStates[video.id] = _pinnedStates[video.id] ?? true;
+      }
+    }
+
     return GridView.builder(
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
@@ -310,97 +319,143 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
       itemCount: videos.length,
       itemBuilder: (context, index) {
         final video = videos[index];
-        return GestureDetector(
-          onTap: () {
-            Navigator.push(
-              context,
-              MaterialPageRoute(
-                builder: (context) => VideoPlayerFullscreen(
-                  video: video,
-                  initialIndex: index,
-                  videos: videos,
+        return Stack(
+          fit: StackFit.expand,
+          children: [
+            GestureDetector(
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => VideoPlayerFullscreen(
+                      video: video,
+                      initialIndex: index,
+                      videos: videos,
+                    ),
+                  ),
+                );
+              },
+              child: Stack(
+                fit: StackFit.expand,
+                children: [
+                  Container(
+                    decoration: BoxDecoration(
+                      color: Colors.black,
+                    ),
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.center,
+                        maxWidth: double.infinity,
+                        maxHeight: double.infinity,
+                        child: FittedBox(
+                          fit: BoxFit.cover,
+                          child: SizedBox(
+                            width: 1,
+                            height: 1.25, // Force 0.8 aspect ratio (1/1.25 = 0.8)
+                            child: VideoPlayerWidget(
+                              videoUrl: video.videoUrl,
+                              videoId: video.id,
+                              isPaused: true,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Container(
+                    color: Colors.black.withOpacity(0.1),
+                  ),
+                ],
+              ),
+            ),
+
+            // Views count overlay
+            Positioned(
+              bottom: 4,
+              right: 4,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(4),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(
+                      Icons.play_arrow,
+                      color: Colors.white,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      '${video.views}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            );
-          },
-          child: Stack(
-            fit: StackFit.expand,
-            children: [
-              Container(
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                ),
-                child: ClipRect(
-                  child: OverflowBox(
-                    alignment: Alignment.center,
-                    maxWidth: double.infinity,
-                    maxHeight: double.infinity,
-                    child: FittedBox(
-                      fit: BoxFit.cover,
-                      child: SizedBox(
-                        width: 1,
-                        height: 1.25, // Force 0.8 aspect ratio (1/1.25 = 0.8)
-                        child: VideoPlayerWidget(
-                          videoUrl: video.videoUrl,
-                          videoId: video.id,
-                          isPaused: true,
-                        ),
+            ),
+
+            // Modified unpin button
+            if (_tabController.index == 1)
+              Positioned(
+                top: 4,
+                left: 4,
+                child: GestureDetector(
+                  onTap: () async {
+                    try {
+                      final userId = context.read<AppAuthProvider>().userId;
+                      if (userId != null) {
+                        // Update local state immediately
+                        setState(() {
+                          _pinnedStates[video.id] = !(_pinnedStates[video.id] ?? true);
+                        });
+                        
+                        await _videoService.toggleLike(video.id, userId);
+                        
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(_pinnedStates[video.id] == true ? 'Video pinned' : 'Video unpinned'),
+                              duration: const Duration(seconds: 1),
+                            ),
+                          );
+                        }
+                      }
+                    } catch (e) {
+                      // Revert local state on error
+                      setState(() {
+                        _pinnedStates[video.id] = !(_pinnedStates[video.id] ?? true);
+                      });
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withOpacity(0.6),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Transform.rotate(
+                      angle: 0.785398,
+                      child: Icon(
+                        Icons.push_pin,
+                        color: _pinnedStates[video.id] == true ? Colors.red : Colors.white,
+                        size: 20,
                       ),
                     ),
                   ),
                 ),
               ),
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => VideoPlayerFullscreen(
-                          video: video,
-                          initialIndex: index,
-                          videos: videos,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ),
-              Container(
-                color: Colors.black.withOpacity(0.1),
-              ),
-              Positioned(
-                bottom: 4,
-                right: 4,
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-                  decoration: BoxDecoration(
-                    color: Colors.black.withOpacity(0.6),
-                    borderRadius: BorderRadius.circular(4),
-                  ),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      const Icon(
-                        Icons.play_arrow,
-                        color: Colors.white,
-                        size: 16,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        '${video.views}',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          ],
         );
       },
     );

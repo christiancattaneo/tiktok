@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 import 'package:provider/provider.dart';
 import '../models/video.dart';
 import '../services/video_service.dart';
 import '../providers/video_provider.dart';
-import 'package:path_provider/path_provider.dart';
+import '../utils/video_cache_manager.dart';
 import 'dart:io';
 import 'dart:async';
 
@@ -28,10 +27,18 @@ class VideoPlayerWidget extends StatefulWidget {
 }
 
 class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
-  late VideoPlayerController _controller;
+  VideoPlayerController? _controller;
   bool _isInitialized = false;
   bool _isDisposed = false;
   bool _hasError = false;
+  File? _cachedVideoFile;
+  VideoProvider? _videoProvider;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _videoProvider = Provider.of<VideoProvider>(context, listen: false);
+  }
 
   @override
   void initState() {
@@ -41,28 +48,28 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
   Future<void> _initializeController() async {
     print('📱 Initializing controller for video: ${widget.videoId}');
-    _controller = VideoPlayerController.network(
-      widget.videoUrl,
-      videoPlayerOptions: VideoPlayerOptions(mixWithOthers: true),
-    );
     
     try {
-      await _controller.initialize();
+      // Temporarily remove caching, just use network controller
+      _controller = VideoPlayerController.network(
+        widget.videoUrl,
+        videoPlayerOptions: VideoPlayerOptions(mixWithOthers: false),
+      );
+      
+      await _controller?.initialize();
       if (!_isDisposed && mounted) {
         setState(() {
           _isInitialized = true;
           _hasError = false;
         });
         
-        _controller.setLooping(true);
+        _controller?.setLooping(true);
         
-        // If this is a preload widget, we don't want to play or set as active
-        if (!widget.shouldPreload) {
-          if (!widget.isPaused) {
-            _controller.play();
-            // Set as active video only if we're actually playing
-            context.read<VideoProvider>().setActiveVideo(_controller, widget.videoId);
-          }
+        // Play immediately if this is not a preload and not paused
+        if (!widget.shouldPreload && !widget.isPaused) {
+          print('📱 Playing video immediately: ${widget.videoId}');
+          await _controller?.play();
+          _videoProvider?.setActiveVideo(_controller!, widget.videoId);
         }
       }
     } catch (e) {
@@ -79,22 +86,21 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
   Future<void> _disposeController() async {
     print('📱 Disposing controller for video: ${widget.videoId}');
     
-    if (_controller.value.isPlaying) {
-      await _controller.pause();
+    if (_controller?.value.isPlaying == true) {
+      await _controller?.pause();
     }
     
-    if (mounted && !widget.shouldPreload) {
+    if (!widget.shouldPreload && _videoProvider != null) {
       try {
-        final videoProvider = Provider.of<VideoProvider>(context, listen: false);
-        if (videoProvider.activeVideoId == widget.videoId) {
-          videoProvider.clearActiveVideo();
+        if (_videoProvider?.activeVideoId == widget.videoId) {
+          _videoProvider?.clearActiveVideo();
         }
       } catch (e) {
         print('📱 Error clearing active video during disposal: $e');
       }
     }
     
-    await _controller.dispose();
+    await _controller?.dispose();
     print('📱 Controller disposed for video: ${widget.videoId}');
   }
 
@@ -112,25 +118,14 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
     
     if (widget.isPaused != oldWidget.isPaused && !widget.shouldPreload) {
       if (widget.isPaused) {
-        _controller.pause();
-        if (mounted) {
-          try {
-            final videoProvider = Provider.of<VideoProvider>(context, listen: false);
-            if (videoProvider.activeVideoId == widget.videoId) {
-              videoProvider.clearActiveVideo();
-            }
-          } catch (e) {
-            print('📱 Error clearing active video on pause: $e');
-          }
+        _controller?.pause();
+        if (_videoProvider?.activeVideoId == widget.videoId) {
+          _videoProvider?.clearActiveVideo();
         }
       } else {
-        _controller.play();
-        if (mounted) {
-          try {
-            context.read<VideoProvider>().setActiveVideo(_controller, widget.videoId);
-          } catch (e) {
-            print('📱 Error setting active video on play: $e');
-          }
+        _controller?.play();
+        if (_controller != null) {
+          _videoProvider?.setActiveVideo(_controller!, widget.videoId);
         }
       }
     }
@@ -148,7 +143,7 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
       );
     }
 
-    if (!_isInitialized) {
+    if (!_isInitialized || _controller == null) {
       return const Center(
         child: CircularProgressIndicator(
           color: Colors.white,
@@ -162,26 +157,15 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
 
     return GestureDetector(
       onTap: () {
-        if (_controller.value.isPlaying) {
-          _controller.pause();
-          if (mounted) {
-            try {
-              final videoProvider = Provider.of<VideoProvider>(context, listen: false);
-              if (videoProvider.activeVideoId == widget.videoId) {
-                videoProvider.clearActiveVideo();
-              }
-            } catch (e) {
-              print('📱 Error clearing active video on tap pause: $e');
-            }
+        if (_controller?.value.isPlaying == true) {
+          _controller?.pause();
+          if (_videoProvider?.activeVideoId == widget.videoId) {
+            _videoProvider?.clearActiveVideo();
           }
         } else {
-          _controller.play();
-          if (mounted) {
-            try {
-              context.read<VideoProvider>().setActiveVideo(_controller, widget.videoId);
-            } catch (e) {
-              print('📱 Error setting active video on tap play: $e');
-            }
+          _controller?.play();
+          if (_controller != null) {
+            _videoProvider?.setActiveVideo(_controller!, widget.videoId);
           }
         }
       },
@@ -192,9 +176,9 @@ class _VideoPlayerWidgetState extends State<VideoPlayerWidget> {
           fit: BoxFit.cover,
           clipBehavior: Clip.hardEdge,
           child: SizedBox(
-            width: _controller.value.size.width,
-            height: _controller.value.size.height,
-            child: VideoPlayer(_controller),
+            width: _controller!.value.size.width,
+            height: _controller!.value.size.height,
+            child: VideoPlayer(_controller!),
           ),
         ),
       ),

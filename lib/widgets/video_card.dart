@@ -17,6 +17,7 @@ class VideoCard extends StatefulWidget {
   final bool shouldInitialize;
   final BoxFit fit;
   final bool preloadOnly;
+  final bool hideControls;
 
   const VideoCard({
     super.key,
@@ -25,6 +26,7 @@ class VideoCard extends StatefulWidget {
     this.shouldInitialize = true,
     this.fit = BoxFit.contain,
     this.preloadOnly = false,
+    this.hideControls = false,
   });
 
   @override
@@ -39,10 +41,12 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
   bool _isLiked = false;
   bool _isLoading = false;
   bool _showHeartOverlay = false;
+  late int _likeCount;
 
   @override
   void initState() {
     super.initState();
+    _likeCount = widget.video.likes;
     _likeController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
@@ -60,6 +64,16 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
         });
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(VideoCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.video.likes != widget.video.likes) {
+      setState(() {
+        _likeCount = widget.video.likes;
+      });
+    }
   }
 
   @override
@@ -86,39 +100,41 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
     final userId = context.read<AppAuthProvider>().userId;
     if (userId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please sign in to like videos')),
+        const SnackBar(content: Text('Please sign in to pin videos')),
       );
       return;
     }
 
+    // Update UI immediately
     setState(() {
-      _isLoading = true;
-      _showHeartOverlay = true;
+      _isLiked = !_isLiked;
+      _likeCount += _isLiked ? 1 : -1;
     });
 
     try {
       final isLiked = await _videoService.toggleLike(widget.video.id, userId);
-      if (mounted) {
+      if (mounted && isLiked != _isLiked) {
+        // Revert if server response doesn't match local state
         setState(() {
           _isLiked = isLiked;
+          _likeCount += isLiked ? 1 : -1;
         });
       }
     } catch (e) {
       if (mounted) {
+        // Revert on error
+        setState(() {
+          _likeCount += _isLiked ? -1 : 1;
+          _isLiked = !_isLiked;
+        });
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Error: ${e.toString()}')),
         );
       }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
     }
   }
 
-  void _showComments() {
+  void _showComments(BuildContext context) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -201,161 +217,167 @@ class _VideoCardState extends State<VideoCard> with SingleTickerProviderStateMix
         ),
 
         // Video Info
-        Positioned(
-          bottom: 80,
-          left: 16,
-          right: 60,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => UserProfileScreen(
-                        userId: widget.video.userId,
-                        username: widget.video.creatorUsername,
+        if (!widget.hideControls) ...[
+          Positioned(
+            bottom: 80,
+            left: 16,
+            right: 60,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                GestureDetector(
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => UserProfileScreen(
+                          userId: widget.video.userId,
+                          username: widget.video.creatorUsername,
+                        ),
                       ),
-                    ),
-                  );
-                },
-                child: Row(
-                  children: [
-                    _buildProfilePhoto(),
-                    const SizedBox(width: 8),
-                    Text(
-                      '@${widget.video.creatorUsername}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
+                    );
+                  },
+                  child: Row(
+                    children: [
+                      _buildProfilePhoto(),
+                      const SizedBox(width: 8),
+                      Text(
+                        '@${widget.video.creatorUsername}',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                widget.video.caption,
-                style: const TextStyle(
+                const SizedBox(height: 4),
+                Text(
+                  widget.video.caption,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  children: widget.video.hashtags.map((tag) => Text(
+                    '#$tag',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 14,
+                      fontWeight: FontWeight.w400,
+                    ),
+                  )).toList(),
+                ),
+              ],
+            ),
+          ),
+
+          // Action Buttons
+          Positioned(
+            right: 8,
+            bottom: 80,
+            child: Column(
+              children: [
+                IconButton(
+                  icon: Transform.rotate(
+                    angle: 0.785398, // 45 degrees in radians (pointing downward-right)
+                    child: Icon(
+                      _isLiked ? Icons.push_pin : Icons.push_pin_outlined,
+                      color: _isLiked ? Colors.red : Colors.white,
+                      size: 28, // Slightly larger size
+                    ),
+                  ),
+                  onPressed: _isLoading ? null : _toggleLike,
+                ),
+                Text(
+                  '$_likeCount',
+                  style: TextStyle(
+                    color: _isLiked ? Colors.red : Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                IconButton(
+                  icon: const Icon(Icons.comment),
                   color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
+                  onPressed: () => _showComments(context),
                 ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 8,
-                children: widget.video.hashtags.map((tag) => Text(
-                  '#$tag',
+                Text(
+                  '${widget.video.commentCount ?? 0}',
                   style: const TextStyle(
                     color: Colors.white,
                     fontSize: 14,
-                    fontWeight: FontWeight.w400,
                   ),
-                )).toList(),
-              ),
-            ],
-          ),
-        ),
-
-        // Action Buttons
-        Positioned(
-          right: 8,
-          bottom: 80,
-          child: Column(
-            children: [
-              IconButton(
-                icon: Icon(
-                  _isLiked ? Icons.favorite : Icons.favorite_border,
-                  color: _isLiked ? Colors.red : Colors.white,
                 ),
-                onPressed: _isLoading ? null : _toggleLike,
-              ),
-              Text(
-                '${widget.video.likes}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              IconButton(
-                icon: const Icon(Icons.comment),
-                color: Colors.white,
-                onPressed: _showComments,
-              ),
-              Text(
-                '${widget.video.commentCount ?? 0}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              const SizedBox(height: 16),
-              IconButton(
-                icon: const Icon(Icons.remove_red_eye),
-                color: Colors.white,
-                onPressed: () {
-                  // TODO: Implement view tracking
-                },
-              ),
-              Text(
-                '${widget.video.views}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                ),
-              ),
-              if (context.read<AppAuthProvider>().userId == widget.video.userId) ...[
                 const SizedBox(height: 16),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline),
+                  icon: const Icon(Icons.remove_red_eye),
                   color: Colors.white,
-                  onPressed: () async {
-                    final confirmed = await showDialog<bool>(
-                      context: context,
-                      builder: (context) => AlertDialog(
-                        title: const Text('Delete Video'),
-                        content: const Text('Are you sure you want to delete this video? This action cannot be undone.'),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, false),
-                            child: const Text('CANCEL'),
-                          ),
-                          TextButton(
-                            onPressed: () => Navigator.pop(context, true),
-                            child: const Text('DELETE'),
-                          ),
-                        ],
-                      ),
-                    );
-
-                    if (confirmed == true) {
-                      try {
-                        await _videoService.deleteVideo(widget.video.id, widget.video.userId);
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(content: Text('Video deleted successfully')),
-                          );
-                        }
-                      } catch (e) {
-                        if (mounted) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Error deleting video: $e')),
-                          );
-                        }
-                      }
-                    }
+                  onPressed: () {
+                    // TODO: Implement view tracking
                   },
                 ),
+                Text(
+                  '${widget.video.views}',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                  ),
+                ),
+                if (context.read<AppAuthProvider>().userId == widget.video.userId) ...[
+                  const SizedBox(height: 16),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline),
+                    color: Colors.white,
+                    onPressed: () async {
+                      final confirmed = await showDialog<bool>(
+                        context: context,
+                        builder: (context) => AlertDialog(
+                          title: const Text('Delete Video'),
+                          content: const Text('Are you sure you want to delete this video? This action cannot be undone.'),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, false),
+                              child: const Text('CANCEL'),
+                            ),
+                            TextButton(
+                              onPressed: () => Navigator.pop(context, true),
+                              child: const Text('DELETE'),
+                            ),
+                          ],
+                        ),
+                      );
+
+                      if (confirmed == true) {
+                        try {
+                          await _videoService.deleteVideo(widget.video.id, widget.video.userId);
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Video deleted successfully')),
+                            );
+                          }
+                        } catch (e) {
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(content: Text('Error deleting video: $e')),
+                            );
+                          }
+                        }
+                      }
+                    },
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
