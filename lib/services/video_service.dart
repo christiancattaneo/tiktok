@@ -14,17 +14,23 @@ import 'dart:convert';
 import 'package:cloud_functions/cloud_functions.dart';
 import 'package:collection/collection.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'hashtag_service.dart';
 
 class VideoService {
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseFunctions _functions = FirebaseFunctions.instanceFor(region: 'us-central1');
   final _uuid = const Uuid();
+  final _hashtagService = HashtagService();
   int _currentPexelsPage = 1;
   bool _isLoadingPexels = false;
   
   // Use this getter for API key
   String get _pexelsApiKey => dotenv.env['PEXELS_API_KEY'] ?? '';
+
+  // Track initial load and shuffled order
+  bool _isInitialLoad = true;
+  List<String> _shuffledVideoOrder = [];
 
   // Upload video file to Firebase Storage
   Future<Map<String, String>?> uploadVideo(XFile videoFile, String userId) async {
@@ -152,30 +158,18 @@ class VideoService {
     print('🎥 Getting video feed...');
     return _firestore
         .collection('videos')
-        .where('isPexels', isEqualTo: false)  // Get user videos first
-        .orderBy('createdAt', descending: true)
         .snapshots()
         .asyncMap((snapshot) async {
-          final userVideos = snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
-          print('🎥 Feed loaded ${userVideos.length} user videos');
-          
-          // Get Pexels videos separately
-          final pexelsSnapshot = await _firestore
-              .collection('videos')
-              .where('isPexels', isEqualTo: true)
-              .orderBy('createdAt', descending: true)
-              .get();
-          
-          final pexelsVideos = pexelsSnapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
-          print('🎥 Feed loaded ${pexelsVideos.length} Pexels videos');
+          final allVideos = snapshot.docs.map((doc) => Video.fromFirestore(doc)).toList();
+          print('🎥 Feed loaded ${allVideos.length} total videos');
           
           // If we have fewer than 10 videos total, fetch more Pexels videos
-          if (userVideos.length + pexelsVideos.length < 10) {
+          if (allVideos.length < 10) {
             print('🎥 Fetching more Pexels videos to fill feed');
             try {
               final newPexelsVideos = await fetchPexelsVideos();
               if (newPexelsVideos.isNotEmpty) {
-                pexelsVideos.addAll(newPexelsVideos);
+                allVideos.addAll(newPexelsVideos);
                 print('🎥 Added ${newPexelsVideos.length} new Pexels videos to feed');
               }
             } catch (e) {
@@ -183,9 +177,25 @@ class VideoService {
             }
           }
           
-          // Combine user videos first, then Pexels videos
-          final allVideos = [...userVideos, ...pexelsVideos];
-          print('🎥 Returning ${allVideos.length} total videos');
+          // Only shuffle and store order on initial load
+          if (_isInitialLoad) {
+            print('🎥 Initial load - shuffling videos');
+            allVideos.shuffle();
+            _shuffledVideoOrder = allVideos.map((v) => v.id).toList();
+            _isInitialLoad = false;
+          } else {
+            // Sort according to stored shuffle order
+            allVideos.sort((a, b) {
+              final aIndex = _shuffledVideoOrder.indexOf(a.id);
+              final bIndex = _shuffledVideoOrder.indexOf(b.id);
+              // New videos go at the end
+              if (aIndex == -1) return 1;
+              if (bIndex == -1) return -1;
+              return aIndex.compareTo(bIndex);
+            });
+          }
+          
+          print('🎥 Returning ${allVideos.length} videos in stable order');
           return allVideos;
         });
   }
@@ -649,10 +659,11 @@ class VideoService {
               orElse: () => video['video_files'].first,
             );
 
-            final videoUrl = videoFile['link'];
+            final pexelsUrl = videoFile['link'];
             final userId = 'pexels_${video['user']['id']}';
             final username = video['user']['name'];
             final description = video['url'].split('/').last.replaceAll('-', ' ');
+            final videoId = _uuid.v4();
             
             // Create a timestamp slightly before now for each video
             final timestamp = now.subtract(Duration(seconds: processedVideos.length));
@@ -660,14 +671,41 @@ class VideoService {
             // Check if video already exists
             final existingVideos = await _firestore
                 .collection('videos')
-                .where('videoUrl', isEqualTo: videoUrl)
+                .where('pexelsId', isEqualTo: video['id'].toString())
                 .limit(1)
                 .get();
 
             if (existingVideos.docs.isNotEmpty) {
-              print('🎥 Video already exists in Firestore, skipping: $videoUrl');
+              print('🎥 Video already exists in Firestore, skipping: ${video['id']}');
               continue;
             }
+
+            // Download video from Pexels
+            print('🎥 Downloading video from Pexels: $pexelsUrl');
+            final videoResponse = await http.get(Uri.parse(pexelsUrl));
+            if (videoResponse.statusCode != 200) {
+              print('🎥 Error downloading video from Pexels: ${videoResponse.statusCode}');
+              continue;
+            }
+
+            // Upload to Firebase Storage
+            final videoRef = _storage.ref().child('videos/$userId/$videoId.mp4');
+            final metadata = SettableMetadata(
+              contentType: 'video/mp4',
+              customMetadata: {
+                'source': 'pexels',
+                'pexelsId': video['id'].toString(),
+                'uploadedAt': timestamp.toIso8601String(),
+              },
+            );
+
+            await videoRef.putData(videoResponse.bodyBytes, metadata);
+            final videoUrl = await videoRef.getDownloadURL();
+
+            // Generate hashtags using Cloud Functions
+            print('🎥 Generating hashtags for video: $videoUrl');
+            final hashtags = await _generateHashtags(videoUrl, description);
+            print('🎥 Generated hashtags: $hashtags');
 
             final videoDoc = await _firestore.collection('videos').add({
               'userId': userId,
@@ -677,12 +715,13 @@ class VideoService {
                   ? '#${searchQuery?.replaceAll(' ', '')} from Pexels'
                   : description,
               'thumbnailUrl': video['image'],
-              'hashtags': ['pexels', 'video'],
+              'hashtags': hashtags,
               'likes': 0,
               'views': 0,
               'commentCount': 0,
               'createdAt': Timestamp.fromDate(timestamp),
               'isPexels': true,
+              'pexelsId': video['id'].toString(),
               'isSearchGenerated': isSearching,
               'duration': video['duration'],
               'width': videoFile['width'],
@@ -712,6 +751,10 @@ class VideoService {
       _isLoadingPexels = false;
       return [];
     }
+  }
+
+  Future<List<String>> _generateHashtags(String videoUrl, String description) async {
+    return _hashtagService.generateHashtags(videoUrl, description);
   }
 
   // Check if we have any videos

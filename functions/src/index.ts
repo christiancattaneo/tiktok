@@ -287,21 +287,63 @@ export const generateHashtags = onCall({ maxInstances: 10 }, async (request: Cal
       throw new HttpsError("unauthenticated", "User must be authenticated");
     }
 
-    const { videoUrl, description, thumbnailUrl } = request.data;
+    const { videoUrl, description } = request.data;
     if (!videoUrl) {
       throw new HttpsError("invalid-argument", "Video URL is required");
     }
 
-    // Try to get the thumbnail
+    // Extract Pexels video ID and get preview image
     let imageData: string | null = null;
     try {
-      const imageResponse = await fetch(thumbnailUrl || videoUrl.replace(".mp4", ".jpg"));
-      if (imageResponse.ok) {
-        const buffer = await imageResponse.buffer();
-        imageData = buffer.toString("base64");
+      if (videoUrl.includes("pexels_")) {
+        // Extract just the numeric ID, ignoring everything after the first /
+        const videoId = videoUrl.split("pexels_")[1].split("/")[0].split("%2F")[0];
+        console.log("Extracted Pexels video ID:", videoId);
+
+        // Fetch 6 frames
+        const frameUrls = Array.from({ length: 6 }, (_, i) =>
+          `https://images.pexels.com/videos/${videoId}/pictures/screenshot-${i}.jpg`
+        );
+        console.log("Fetching frames for Pexels video:", videoId);
+
+        const frameResponses = await Promise.all(
+          frameUrls.map((url) => fetch(url, {
+            headers: { "Authorization": process.env.PEXELS_API_KEY || "" },
+          }))
+        );
+
+        // Log response statuses
+        frameResponses.forEach((response, i) => {
+          console.log(`Frame ${i} response status:`, response.status);
+        });
+
+        // Get successful responses
+        const validFrames = await Promise.all(
+          frameResponses
+            .filter((response) => response.ok)
+            .map((response) => response.buffer())
+        );
+
+        console.log(`Successfully fetched ${validFrames.length} frames`);
+
+        if (validFrames.length > 0) {
+          // Use the first valid frame for analysis
+          imageData = validFrames[0].toString("base64");
+          console.log("Using first frame for analysis");
+        }
+      } else {
+        const previewUrl = videoUrl.replace(".mp4", ".jpg");
+        const imageResponse = await fetch(previewUrl);
+        if (imageResponse.ok) {
+          const buffer = await imageResponse.buffer();
+          imageData = buffer.toString("base64");
+          console.log("Successfully fetched preview image");
+        } else {
+          console.error("Failed to fetch preview image:", imageResponse.status, imageResponse.statusText);
+        }
       }
     } catch (e) {
-      console.error("Error getting thumbnail:", e);
+      console.error("Error getting preview image:", e);
     }
 
     if (imageData) {
@@ -309,9 +351,16 @@ export const generateHashtags = onCall({ maxInstances: 10 }, async (request: Cal
       try {
         const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
         const prompt = [
-          "Analyze this video thumbnail and generate 5 relevant hashtags that describe",
-          "its visual content. Return them as a comma-separated list without # symbols.",
-          "Focus on the main subject matter, style, mood, and any notable visual elements.",
+          "Analyze these video frames and generate relevant hashtags that describe",
+          "the video content. The image shows multiple frames from different parts of the video",
+          "to give you a better understanding of its content.",
+          "Return them as a comma-separated list without # symbols.",
+          "Focus on:",
+          "1. The overall theme or story",
+          "2. Actions or movements shown",
+          "3. Setting and environment",
+          "4. Style and mood",
+          "5. Any recurring elements across frames",
         ].join(" ");
 
         const result = await model.generateContent([

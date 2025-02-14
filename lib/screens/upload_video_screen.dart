@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 import '../providers/app_auth_provider.dart';
 import '../services/video_service.dart';
+import '../services/hashtag_service.dart';
 import 'package:path/path.dart' as path;
 import 'package:video_player/video_player.dart';
 import '../services/trend_service.dart';
@@ -19,11 +20,14 @@ class UploadVideoScreen extends StatefulWidget {
 class _UploadVideoScreenState extends State<UploadVideoScreen> {
   final _videoService = VideoService();
   final _trendService = TrendService();
+  final _hashtagService = HashtagService();
   final _captionController = TextEditingController();
   final _hashtagController = TextEditingController();
   XFile? _videoFile;
   VideoPlayerController? _previewController;
   bool _isUploading = false;
+  bool _isGeneratingHashtags = false;
+  List<String> _aiGeneratedHashtags = [];
   double _uploadProgress = 0.0;
   String _uploadStatus = '';
   List<String> _hashtags = [];
@@ -179,6 +183,39 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
       if (mounted) {
         setState(() {
           _isLoadingInsights = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _generateAIHashtags() async {
+    if (_videoFile == null) return;
+
+    setState(() {
+      _isGeneratingHashtags = true;
+    });
+
+    try {
+      // Use the video file path for analysis
+      final hashtags = await _hashtagService.generateHashtags(
+        _videoFile!.path,
+        _captionController.text,
+      );
+
+      if (mounted) {
+        setState(() {
+          _aiGeneratedHashtags = hashtags;
+          _isGeneratingHashtags = false;
+        });
+      }
+    } catch (e) {
+      print('Error generating AI hashtags: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error generating hashtags: $e')),
+        );
+        setState(() {
+          _isGeneratingHashtags = false;
         });
       }
     }
@@ -452,6 +489,65 @@ class _UploadVideoScreenState extends State<UploadVideoScreen> {
                               },
                             )).toList(),
                           ),
+                        ],
+
+                        // AI Generated Hashtags
+                        if (_videoFile != null) ...[
+                          const SizedBox(height: 16),
+                          const Divider(),
+                          const SizedBox(height: 8),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                'AI Generated Hashtags',
+                                style: Theme.of(context).textTheme.titleMedium,
+                              ),
+                              if (!_isGeneratingHashtags)
+                                IconButton(
+                                  icon: const Icon(Icons.refresh),
+                                  onPressed: _generateAIHashtags,
+                                  tooltip: 'Regenerate hashtags',
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 8),
+                          if (_isGeneratingHashtags)
+                            const Center(
+                              child: Padding(
+                                padding: EdgeInsets.all(16.0),
+                                child: Column(
+                                  children: [
+                                    CircularProgressIndicator(),
+                                    SizedBox(height: 8),
+                                    Text('Analyzing video content...'),
+                                  ],
+                                ),
+                              ),
+                            )
+                          else if (_aiGeneratedHashtags.isEmpty)
+                            Center(
+                              child: TextButton.icon(
+                                icon: const Icon(Icons.auto_awesome),
+                                label: const Text('Generate AI Hashtags'),
+                                onPressed: _generateAIHashtags,
+                              ),
+                            )
+                          else
+                            Wrap(
+                              spacing: 8,
+                              children: _aiGeneratedHashtags.map((tag) => ActionChip(
+                                avatar: const Icon(Icons.auto_awesome, size: 16),
+                                label: Text('#$tag'),
+                                onPressed: () {
+                                  if (!_hashtags.contains(tag)) {
+                                    setState(() {
+                                      _hashtags.add(tag);
+                                    });
+                                  }
+                                },
+                              )).toList(),
+                            ),
                         ],
                       ],
                     ),

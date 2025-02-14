@@ -205,7 +205,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
                     video: video,
                     autoPlay: isCurrentVideo && !_isPaused,
                     shouldInitialize: shouldInitialize,
-                    hideControls: _isSearchMode,
+                    hideControls: _isSearchMode && _searchFocusNode.hasFocus,
                   );
                 },
               );
@@ -278,9 +278,19 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
                                   borderSide: BorderSide(color: Colors.white),
                                 ),
                               ),
-                              onChanged: _handleSearch,
+                              onChanged: (value) {
+                                setState(() {
+                                  _searchQuery = value;
+                                });
+                              },
                               textInputAction: TextInputAction.search,
-                              onSubmitted: _handleSearch,
+                              onSubmitted: (query) {
+                                if (query.isNotEmpty) {
+                                  _addToRecentSearches(query, 'videos');
+                                  _loadMoreVideos();
+                                  _searchFocusNode.unfocus();
+                                }
+                              },
                             ),
                           ),
                           // Clear Button (only show when there's text)
@@ -364,7 +374,7 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
           // Loading indicator at the bottom
           if (_isLoading)
             Positioned(
-              bottom: 20,
+              top: 160, // Position it below the search bar and tabs
               left: 0,
               right: 0,
               child: Center(
@@ -584,13 +594,13 @@ class _FeedScreenState extends State<FeedScreen> with WidgetsBindingObserver, Ro
   }
 
   void _handleSearch(String query) {
-    setState(() {
-      _searchQuery = query;
-    });
-    
     if (query.isNotEmpty) {
+      setState(() {
+        _searchQuery = query;
+      });
       _addToRecentSearches(query, 'videos');
       _loadMoreVideos();
+      _searchFocusNode.unfocus();
     }
   }
 

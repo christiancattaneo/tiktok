@@ -39,30 +39,37 @@ class _VideoPlayerFullscreenState extends State<VideoPlayerFullscreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: Colors.black,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: PageView.builder(
-        controller: _pageController,
-        scrollDirection: Axis.vertical,
-        itemCount: widget.videos.length,
-        onPageChanged: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
-        itemBuilder: (context, index) {
-          final video = widget.videos[index];
-          return VideoCard(
-            video: video,
-            autoPlay: index == _currentIndex,
-            shouldInitialize: (index - _currentIndex).abs() <= 1,
-          );
-        },
+      body: Stack(
+        children: [
+          PageView.builder(
+            controller: _pageController,
+            scrollDirection: Axis.vertical,
+            itemCount: widget.videos.length,
+            onPageChanged: (index) {
+              setState(() {
+                _currentIndex = index;
+              });
+            },
+            itemBuilder: (context, index) {
+              final video = widget.videos[index];
+              return VideoCard(
+                video: video,
+                autoPlay: index == _currentIndex,
+                shouldInitialize: (index - _currentIndex).abs() <= 1,
+                fit: BoxFit.cover,
+              );
+            },
+          ),
+          // Back button overlay
+          Positioned(
+            top: MediaQuery.of(context).padding.top + 8,
+            left: 8,
+            child: IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
+          ),
+        ],
       ),
     );
   }
