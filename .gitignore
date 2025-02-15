@@ -15,6 +15,10 @@ config_service.dart
 .swiftpm/
 migrate_working_dir/
 
+# Test files that might contain keys
+functions/test.js
+**/test.js
+
 # IntelliJ related
 *.iml
 *.ipr
